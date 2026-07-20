@@ -17,9 +17,6 @@ _ADD_RE = re.compile(
 _CANCEL_RE = re.compile(
     r"^取消\s+(\d{1,2})/(\d{1,2})\s+(\d{1,2})-(\d{1,2})(?:\s+(.+))?$"
 )
-# 查詢 / 查詢 7  → days inclusive from today
-_LIST_RE = re.compile(r"^查詢(?:\s+(\d{1,3}))?$")
-
 # Safety cap for 查詢 N
 MAX_LIST_DAYS = 366
 
@@ -59,6 +56,61 @@ def _validate_hours(start: int, end: int) -> None:
         raise ValueError("結束時間必須大於開始時間")
 
 
+def _is_days_token(token: str) -> bool:
+    return bool(re.fullmatch(r"\d{1,3}", token))
+
+
+def _parse_list_days(token: str) -> int:
+    days = int(token)
+    if days < 1:
+        raise ValueError("查詢天數須為 1 以上的整數，例如：查詢 7")
+    if days > MAX_LIST_DAYS:
+        raise ValueError(f"查詢天數最多 {MAX_LIST_DAYS} 天")
+    return days
+
+
+def parse_list_command(raw: str) -> Optional[Command]:
+    """
+    Parse 查詢 variants:
+
+    - 查詢
+    - 查詢 7                 (N days, all people)
+    - 查詢 Morris            (person, from today)
+    - 查詢 7 Morris          (person within N days)
+    - 查詢 Morris 7          (same)
+    - 查詢 我                (self; resolved later via display name)
+    """
+    text = raw.strip()
+    if text == "查詢":
+        return Command(type=CommandType.LIST)
+    if not re.match(r"^查詢[\s\u3000]", text):
+        return None
+
+    rest = re.sub(r"^查詢[\s\u3000]+", "", text).strip()
+    if not rest:
+        return Command(type=CommandType.LIST)
+
+    parts = rest.split()
+    days: Optional[int] = None
+    person: Optional[str] = None
+
+    if len(parts) == 1:
+        if _is_days_token(parts[0]):
+            days = _parse_list_days(parts[0])
+        else:
+            person = parts[0]
+    elif _is_days_token(parts[0]):
+        days = _parse_list_days(parts[0])
+        person = " ".join(parts[1:]).strip() or None
+    elif _is_days_token(parts[-1]):
+        days = _parse_list_days(parts[-1])
+        person = " ".join(parts[:-1]).strip() or None
+    else:
+        person = rest
+
+    return Command(type=CommandType.LIST, days=days, person_name=person)
+
+
 def parse_command(text: str, today: Optional[date] = None) -> Optional[Command]:
     """
     Parse a single-line user text into a Command.
@@ -70,17 +122,9 @@ def parse_command(text: str, today: Optional[date] = None) -> Optional[Command]:
     if not raw:
         return None
 
-    list_m = _LIST_RE.match(raw)
-    if list_m:
-        days_raw = list_m.group(1)
-        if days_raw is None:
-            return Command(type=CommandType.LIST, days=None)
-        days = int(days_raw)
-        if days < 1:
-            raise ValueError("查詢天數須為 1 以上的整數，例如：查詢 7")
-        if days > MAX_LIST_DAYS:
-            raise ValueError(f"查詢天數最多 {MAX_LIST_DAYS} 天")
-        return Command(type=CommandType.LIST, days=days)
+    list_cmd = parse_list_command(raw)
+    if list_cmd is not None:
+        return list_cmd
 
     if raw in {"說明", "help", "Help", "HELP"}:
         return Command(type=CommandType.HELP)

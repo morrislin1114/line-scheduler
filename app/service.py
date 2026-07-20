@@ -128,9 +128,21 @@ class ScheduleService:
             if command.days is not None:
                 # 查詢 7 = today .. today+6 (7 days inclusive)
                 to_date = today + timedelta(days=command.days - 1)
-            shifts = self.store.list_from_date(group_id, today, to_date=to_date)
+            person = command.person_name
+            if person and person in {"我", "me", "Me", "ME"}:
+                person = display_name
+            shifts = self.store.list_from_date(
+                group_id,
+                today,
+                to_date=to_date,
+                person_name=person,
+            )
             return formatter.truncate_reply(
-                formatter.format_list(shifts, days=command.days)
+                formatter.format_list(
+                    shifts,
+                    days=command.days,
+                    person_name=person,
+                )
             )
 
         if command.type == CommandType.ADD:

@@ -40,13 +40,31 @@ def format_list(
     shifts: Iterable[Shift],
     *,
     days: Optional[int] = None,
+    person_name: Optional[str] = None,
 ) -> str:
     items: List[Shift] = list(shifts)
+    scope_bits: List[str] = []
+    if person_name:
+        scope_bits.append(person_name)
     if days is not None:
-        title = f"📅 排班一覽（今日起 {days} 天內）"
+        scope_bits.append(f"今日起 {days} 天內")
+    else:
+        scope_bits.append("今日起")
+
+    title = "📅 排班一覽（" + " · ".join(scope_bits) + "）"
+    if person_name and days is not None:
+        empty = (
+            f"目前沒有 {person_name} 在今日起 {days} 天內的排班。"
+            f"可用 7/21 9-13 {person_name} 新增。"
+        )
+    elif person_name:
+        empty = (
+            f"目前沒有 {person_name} 今日之後的排班。"
+            f"可用 7/21 9-13 {person_name} 新增。"
+        )
+    elif days is not None:
         empty = f"目前沒有今日起 {days} 天內的排班。可用 7/21 9-13 新增。"
     else:
-        title = "📅 排班一覽（今日起）"
         empty = "目前沒有今日之後的排班。可用 7/21 9-13 新增。"
 
     if not items:
@@ -135,7 +153,14 @@ HELP_TEXT = """📋 排班 Bot 說明
 查詢
 → 列出今日之後的全部班表
 查詢 7
-→ 列出今日算起 7 天內的班表（含今天）
+→ 今日算起 7 天內（含今天）
+查詢 Morris
+→ 只看 Morris 今日之後的班
+查詢 我
+→ 只看自己的班（LINE 顯示名稱）
+查詢 7 Morris
+查詢 Morris 7
+→ 某人 + 天數可併用
 
 時間為 24 小時制整點，例如 9-13、13-19。
 可重複排班（不擋同人同時段）。

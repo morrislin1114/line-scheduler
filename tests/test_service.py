@@ -255,6 +255,47 @@ def test_list_with_days_window(tmp_path: Path):
     assert "共 2 筆" in all_msg
 
 
+def test_list_by_person_and_self_alias(tmp_path: Path):
+    from app.models import NewShift
+
+    store = ShiftStore(tmp_path / "t.db")
+    for name, d in (("Morris", date(2026, 7, 22)), ("Kelly", date(2026, 7, 23))):
+        store.add_shift(
+            NewShift(
+                group_id="g",
+                shift_date=d,
+                start_hour=9,
+                end_hour=12,
+                person_name=name,
+                created_by_user_id="u",
+                created_by_name="A",
+            )
+        )
+    svc = ScheduleService(store)
+    today = date(2026, 7, 21)
+
+    by_name = svc.handle(
+        Command(type=CommandType.LIST, person_name="Morris"),
+        group_id="g",
+        user_id="u",
+        display_name="Someone",
+        today=today,
+    )
+    assert "Morris" in by_name
+    assert "Kelly" not in by_name
+    assert "共 1 筆" in by_name
+
+    self_msg = svc.handle(
+        Command(type=CommandType.LIST, person_name="我"),
+        group_id="g",
+        user_id="u",
+        display_name="Morris",
+        today=today,
+    )
+    assert "Morris" in self_msg
+    assert "Kelly" not in self_msg
+
+
 def test_multi_line_batch_add(tmp_path: Path):
     from app.parser import parse_message
 

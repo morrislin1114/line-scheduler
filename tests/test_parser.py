@@ -20,6 +20,27 @@ def test_list_with_days():
     assert cmd is not None
     assert cmd.type == CommandType.LIST
     assert cmd.days == 7
+    assert cmd.person_name is None
+
+
+def test_list_with_person():
+    cmd = parse_command("查詢 Morris")
+    assert cmd is not None
+    assert cmd.type == CommandType.LIST
+    assert cmd.person_name == "Morris"
+    assert cmd.days is None
+
+
+def test_list_person_and_days():
+    c1 = parse_command("查詢 7 Morris")
+    assert c1 is not None
+    assert c1.days == 7 and c1.person_name == "Morris"
+    c2 = parse_command("查詢 Morris 7")
+    assert c2 is not None
+    assert c2.days == 7 and c2.person_name == "Morris"
+    c3 = parse_command("查詢 Mary Jane 14")
+    assert c3 is not None
+    assert c3.days == 14 and c3.person_name == "Mary Jane"
 
 
 def test_list_days_invalid():
