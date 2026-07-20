@@ -54,8 +54,13 @@ class LineClient:
                 )
                 if resp.status_code >= 400:
                     logger.error(
-                        "LINE reply failed: %s %s", resp.status_code, resp.text
+                        "LINE reply failed: %s %s — check CHANNEL_ACCESS_TOKEN "
+                        "and replyToken validity",
+                        resp.status_code,
+                        resp.text,
                     )
+                else:
+                    logger.info("LINE reply ok")
         except httpx.HTTPError as exc:
             logger.exception("LINE reply request error: %s", exc)
 
