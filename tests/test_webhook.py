@@ -16,14 +16,18 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("LINE_CHANNEL_ACCESS_TOKEN", "test_token")
     monkeypatch.setenv("DATABASE_PATH", str(tmp_path / "wh.db"))
     monkeypatch.setenv("SKIP_SIGNATURE_VERIFY", "true")
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.delenv("POSTGRES_URL", raising=False)
 
     # Re-import app with new env
     import importlib
 
     import app.config as config_mod
     import app.main as main_mod
+    import app.storage as storage_mod
 
     importlib.reload(config_mod)
+    importlib.reload(storage_mod)
     importlib.reload(main_mod)
 
     return TestClient(main_mod.app), main_mod
@@ -102,18 +106,43 @@ def test_webhook_ignores_chat(client, monkeypatch):
     assert called == []
 
 
+def test_webhook_multi_line_add(client, monkeypatch):
+    c, main_mod = client
+    replies: list[str] = []
+    monkeypatch.setattr(main_mod.line, "reply_text", lambda t, text: replies.append(text))
+    monkeypatch.setattr(main_mod.line, "get_display_name", lambda *a, **k: "Admin")
+
+    text = "7/21 9-12 Morris\n7/22 9-21 Kelly\n7/23 13-21 Annie"
+    payload = {
+        "events": [
+            {
+                "type": "message",
+                "replyToken": "tok-ml",
+                "source": {"type": "group", "groupId": "G1", "userId": "U1"},
+                "message": {"type": "text", "text": text},
+            }
+        ]
+    }
+    r = c.post("/webhook", json=payload)
+    assert r.status_code == 200
+    assert any("已新增 3 筆" in t for t in replies)
+
+
 def test_invalid_signature_rejected(tmp_path: Path, monkeypatch):
     monkeypatch.setenv("LINE_CHANNEL_SECRET", "test_secret")
     monkeypatch.setenv("LINE_CHANNEL_ACCESS_TOKEN", "test_token")
     monkeypatch.setenv("DATABASE_PATH", str(tmp_path / "sig.db"))
     monkeypatch.setenv("SKIP_SIGNATURE_VERIFY", "false")
+    monkeypatch.delenv("DATABASE_URL", raising=False)
 
     import importlib
 
     import app.config as config_mod
     import app.main as main_mod
+    import app.storage as storage_mod
 
     importlib.reload(config_mod)
+    importlib.reload(storage_mod)
     importlib.reload(main_mod)
     c = TestClient(main_mod.app)
 

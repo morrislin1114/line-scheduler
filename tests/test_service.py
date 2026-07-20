@@ -202,3 +202,33 @@ def test_list_excludes_past(tmp_path: Path):
     assert "New" in listed
     assert "Old" not in listed
     assert "共 1 筆" in listed
+
+
+def test_multi_line_batch_add(tmp_path: Path):
+    from app.parser import parse_message
+
+    svc = _svc(tmp_path)
+    today = date(2026, 7, 20)
+    text = """7/21 9-12 Morris
+7/22 9-21 Kelly
+7/23 13-21 Annie"""
+    parsed = parse_message(text, today=today)
+    msg = svc.handle_message(
+        parsed,
+        group_id="g",
+        user_id="u1",
+        display_name="Admin",
+        today=today,
+    )
+    assert msg is not None
+    assert "已新增 3 筆" in msg
+    assert "Morris" in msg and "Kelly" in msg and "Annie" in msg
+
+    listed = svc.handle(
+        Command(type=CommandType.LIST),
+        group_id="g",
+        user_id="u1",
+        display_name="Admin",
+        today=today,
+    )
+    assert "共 3 筆" in listed

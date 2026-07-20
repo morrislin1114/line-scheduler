@@ -8,10 +8,38 @@
 |------|------|------|
 | 新增 | `7/21 9-13` | 沒帶名字 → 排自己（LINE 顯示名稱） |
 | 新增 | `7/22 13-19 John` | 有帶名字 → 幫該人排 |
+| 新增多行 | 見下方 | 一次貼多行，批次新增 |
 | 查詢 | `查詢` | 列出**今日起**的班表 |
 | 取消 | `取消 7/21 9-13` | 取消自己在該時段**最新一筆** |
 | 取消 | `取消 7/22 13-19 John` | 取消該人最新一筆 |
 | 說明 | `說明` | 指令說明 |
+
+### 多行批次新增範例
+
+同一則訊息可貼多行（每行一筆）：
+
+```
+7/21 9-12 Morris
+7/22 9-21 Kelly
+7/23 13-21 Annie
+```
+
+回覆會像：
+
+```
+✅ 已新增 3 筆
+
+7/21（二） 09:00–12:00  Morris
+7/22（三） 09:00–21:00  Kelly
+7/23（四） 13:00–21:00  Annie
+```
+
+取消也可多行，例如：
+
+```
+取消 7/21 9-12 Morris
+取消 7/22 9-21 Kelly
+```
 
 - 時間為 24 小時制整點，例如 `9-13`、`13-19`
 - **可重複排班**（同人同時段可多筆，不擋衝突）
@@ -33,7 +61,7 @@
 ## 技術
 
 - Python 3.11+ / FastAPI
-- SQLite
+- **資料庫**：優先 `DATABASE_URL` → **PostgreSQL**（建議 Neon 免費）；未設定則 **SQLite**
 - LINE Messaging API（Webhook + Reply）
 
 ## 快速開始（本機）
@@ -53,7 +81,10 @@ cp .env.example .env
 ```bash
 LINE_CHANNEL_SECRET=你的_Channel_Secret
 LINE_CHANNEL_ACCESS_TOKEN=你的_Channel_Access_Token
+# 本機可用 SQLite：
 DATABASE_PATH=./data/shifts.db
+# 或改用 Postgres（有設 DATABASE_URL 時會忽略 SQLite）：
+# DATABASE_URL=postgresql://user:pass@host/db?sslmode=require
 ```
 
 ### 2. 建立 LINE Messaging API Channel
@@ -125,7 +156,9 @@ Repo 已在 GitHub：https://github.com/morrislin1114/line-scheduler
 |-----|--------|
 | `LINE_CHANNEL_SECRET` | LINE Developers → Channel → Basic settings 的 **Channel secret** |
 | `LINE_CHANNEL_ACCESS_TOKEN` | Messaging API 分頁的 **Channel access token**（長字串） |
-| `DATABASE_PATH` | `/tmp/shifts.db` |
+| `DATABASE_URL` | Neon（或其他）Postgres 連線字串，見下方 **「接上免費 Postgres」** |
+
+> 若暫時不加 `DATABASE_URL`，可設 `DATABASE_PATH=/tmp/shifts.db`（Render 重啟可能掉資料）。
 
 6. 按 **Create Web Service**（或 Deploy Web Service）
 7. 等 Logs 出現類似 `Uvicorn running on...` / 狀態變 **Live**（第一次可能 3–10 分鐘）
@@ -134,7 +167,7 @@ Repo 已在 GitHub：https://github.com/morrislin1114/line-scheduler
    `https://line-scheduler-xxxx.onrender.com`
 
 9. 瀏覽器開：`https://你的網址/health`  
-   應看到：`{"status":"ok"}`
+   應看到類似：`{"status":"ok","db":"postgres","db_ok":"true",...}`
 
 ### C. 把 Webhook 接到 LINE
 
@@ -165,10 +198,29 @@ git add -A && git commit -m "your message" && git push
 
 Render 若已開 **Auto-Deploy**，推到 `main` 會自動重新部署。
 
-### 注意：SQLite 與免費方案
+### 接上免費 Postgres（Neon，建議）
 
-- Render **Free** 一段時間沒人打會**睡著**，第一次回應可能慢 30–60 秒（LINE Verify 或第一則訊息）。
-- 免費實例重啟後**磁碟可能清空**，班表有遺失風險。數十人、可接受偶爾重建時 SQLite 通常夠用；要持久化可再改 Neon 等免費 Postgres。
+Render Free 的磁碟不持久，**正式排班請用外部 DB**。
+
+1. 開啟 https://neon.tech/ → 用 GitHub / Email 註冊  
+2. **Create project**（區域可選 Singapore 若有）  
+3. 建立完成後，Dashboard → **Connection string** → 選 **URI**  
+   形如：
+
+   ```text
+   postgresql://user:password@ep-xxxx.ap-southeast-1.aws.neon.tech/neondb?sslmode=require
+   ```
+
+4. 整段複製到 Render → Environment → **`DATABASE_URL`**  
+5. **Save** 後手動 **Manual Deploy** 一次  
+6. 開 `/health` 確認 `"db":"postgres","db_ok":"true"`
+
+> 程式啟動時會自動 `CREATE TABLE IF NOT EXISTS shifts`，不用手動建表。
+
+### 注意：免費方案
+
+- Render **Free** 一段時間沒人打會**睡著**，第一次回應可能慢 30–60 秒。
+- 有 `DATABASE_URL` 時班表存在 Neon，**重啟不會掉**。
 - LINE 免費訊息有月額度；本 bot **只用 Reply**，不主動 Push。
 
 ## 開發與測試
@@ -186,7 +238,7 @@ app/
   config.py
   parser.py        # 指令解析
   service.py       # 業務邏輯
-  storage.py       # SQLite
+  storage.py       # Postgres / SQLite
   formatter.py     # 回覆格式
   line_client.py   # 簽章、reply、顯示名稱
   models.py

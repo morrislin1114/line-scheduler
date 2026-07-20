@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from datetime import date
-from typing import Iterable, List
+from typing import Iterable, List, Sequence
 
 from app.models import Shift
 
@@ -61,8 +61,26 @@ def format_add_success(shift: Shift) -> str:
     return f"✅ 已新增\n{format_shift_brief(shift)}"
 
 
+def format_add_batch_success(shifts: Sequence[Shift]) -> str:
+    if len(shifts) == 1:
+        return format_add_success(shifts[0])
+    lines = [f"✅ 已新增 {len(shifts)} 筆", ""]
+    for s in shifts:
+        lines.append(format_shift_brief(s))
+    return "\n".join(lines)
+
+
 def format_cancel_success(shift: Shift) -> str:
     return f"🗑 已取消\n{format_shift_brief(shift)}"
+
+
+def format_cancel_batch_success(shifts: Sequence[Shift]) -> str:
+    if len(shifts) == 1:
+        return format_cancel_success(shifts[0])
+    lines = [f"🗑 已取消 {len(shifts)} 筆", ""]
+    for s in shifts:
+        lines.append(format_shift_brief(s))
+    return "\n".join(lines)
 
 
 def format_cancel_not_found(
@@ -78,14 +96,26 @@ def format_cancel_not_found(
     )
 
 
+def format_line_errors(errors: Sequence[tuple[int, str, str]]) -> str:
+    """errors: (line_no, raw, message)"""
+    lines = ["⚠️ 部分行未處理："]
+    for line_no, raw, msg in errors:
+        preview = raw if len(raw) <= 40 else raw[:37] + "..."
+        lines.append(f"  第{line_no}行「{preview}」：{msg}")
+    return "\n".join(lines)
+
+
 HELP_TEXT = """📋 排班 Bot 說明
 
-【新增】
+【新增】（可多行一次送出）
 7/21 9-13
 7/22 13-19 John
+7/21 9-12 Morris
+7/22 9-21 Kelly
+7/23 13-21 Annie
 → 沒帶名字排自己；有帶名字幫該人排
 
-【取消】
+【取消】（可多行）
 取消 7/21 9-13
 取消 7/22 13-19 John
 → 每次只取消符合條件的最新一筆

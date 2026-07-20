@@ -5,7 +5,7 @@ from datetime import date
 import pytest
 
 from app.models import CommandType
-from app.parser import parse_command, resolve_shift_date
+from app.parser import parse_command, parse_message, resolve_shift_date
 
 
 def test_list_command():
@@ -83,3 +83,44 @@ def test_padded_and_name_with_spaces():
     assert cmd.person_name == "Mary Jane"
     assert cmd.start_hour == 9
     assert cmd.end_hour == 18
+
+
+def test_multi_line_add():
+    today = date(2026, 7, 20)
+    text = """7/21 9-12 Morris
+7/22 9-21 Kelly
+7/23 13-21 Annie"""
+    result = parse_message(text, today=today)
+    assert not result.ignore
+    assert len(result.commands) == 3
+    assert not result.line_errors
+    assert result.commands[0].person_name == "Morris"
+    assert result.commands[1].person_name == "Kelly"
+    assert result.commands[2].person_name == "Annie"
+    assert result.commands[0].start_hour == 9
+    assert result.commands[0].end_hour == 12
+    assert result.commands[1].end_hour == 21
+
+
+def test_multi_line_partial_errors():
+    today = date(2026, 7, 20)
+    text = """7/21 9-12 Morris
+not a command
+7/22 13-9 Bad"""
+    result = parse_message(text, today=today)
+    assert len(result.commands) == 1
+    assert len(result.line_errors) == 2
+
+
+def test_multi_line_casual_chat_ignored():
+    result = parse_message("hello\nworld")
+    assert result.ignore
+
+
+def test_multi_line_cancel():
+    today = date(2026, 7, 20)
+    text = """取消 7/21 9-12 Morris
+取消 7/22 9-21 Kelly"""
+    result = parse_message(text, today=today)
+    assert len(result.commands) == 2
+    assert all(c.type == CommandType.CANCEL for c in result.commands)

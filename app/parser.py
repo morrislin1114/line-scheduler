@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from datetime import date
-from typing import Optional
+from typing import List, Optional
 from zoneinfo import ZoneInfo
 
 from app.config import TAIPEI_TZ
@@ -55,7 +56,7 @@ def _validate_hours(start: int, end: int) -> None:
 
 def parse_command(text: str, today: Optional[date] = None) -> Optional[Command]:
     """
-    Parse user text into a Command.
+    Parse a single-line user text into a Command.
 
     Returns None if the message is not a bot command (ignore quietly).
     Raises ValueError for recognized but invalid commands (reply with error).
@@ -111,3 +112,95 @@ def parse_command(text: str, today: Optional[date] = None) -> Optional[Command]:
         )
 
     return None
+
+
+@dataclass
+class LineParseResult:
+    line_no: int
+    raw: str
+    command: Optional[Command] = None
+    error: Optional[str] = None
+
+
+@dataclass
+class MessageParseResult:
+    """Result of parsing a full message (possibly multi-line)."""
+
+    commands: List[Command]
+    line_errors: List[LineParseResult]
+    # True when the whole message is not a bot command (ignore)
+    ignore: bool = False
+
+
+def parse_message(text: str, today: Optional[date] = None) -> MessageParseResult:
+    """
+    Parse a full chat message.
+
+    - Single line: same rules as before (查詢 / 說明 / 新增 / 取消)
+    - Multi-line: each non-empty line is add or cancel; 查詢/說明 only valid alone
+    """
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+    if not lines:
+        return MessageParseResult(commands=[], line_errors=[], ignore=True)
+
+    # Single-line message
+    if len(lines) == 1:
+        try:
+            cmd = parse_command(lines[0], today=today)
+        except ValueError as exc:
+            return MessageParseResult(
+                commands=[],
+                line_errors=[
+                    LineParseResult(line_no=1, raw=lines[0], error=str(exc))
+                ],
+            )
+        if cmd is None:
+            return MessageParseResult(commands=[], line_errors=[], ignore=True)
+        return MessageParseResult(commands=[cmd], line_errors=[])
+
+    # Multi-line: only ADD / CANCEL per line
+    commands: List[Command] = []
+    errors: List[LineParseResult] = []
+    for i, line in enumerate(lines, start=1):
+        try:
+            cmd = parse_command(line, today=today)
+        except ValueError as exc:
+            errors.append(LineParseResult(line_no=i, raw=line, error=str(exc)))
+            continue
+
+        if cmd is None:
+            errors.append(
+                LineParseResult(
+                    line_no=i,
+                    raw=line,
+                    error="無法辨識（多行僅支援新增/取消格式）",
+                )
+            )
+            continue
+
+        if cmd.type in {CommandType.LIST, CommandType.HELP}:
+            errors.append(
+                LineParseResult(
+                    line_no=i,
+                    raw=line,
+                    error="「查詢／說明」請單獨一行送出，不可與多行混用",
+                )
+            )
+            continue
+
+        commands.append(cmd)
+
+    # If nothing looked like a command at all, ignore (casual multi-line chat)
+    if not commands and not errors:
+        return MessageParseResult(commands=[], line_errors=[], ignore=True)
+
+    # All lines failed to parse as known schedule syntax → ignore quietly
+    # unless at least one line matched date pattern-ish? If all are "無法辨識"
+    # and no commands, treat as ignore only when NO line had errors that look
+    # intentional. Safer: if zero commands and all errors are "無法辨識", ignore.
+    if not commands and errors and all(
+        e.error and e.error.startswith("無法辨識") for e in errors
+    ):
+        return MessageParseResult(commands=[], line_errors=[], ignore=True)
+
+    return MessageParseResult(commands=commands, line_errors=errors)

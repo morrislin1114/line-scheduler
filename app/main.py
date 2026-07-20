@@ -10,7 +10,7 @@ from fastapi import FastAPI, Header, HTTPException, Request, Response
 
 from app.config import get_settings
 from app.line_client import LineClient
-from app.parser import parse_command
+from app.parser import parse_message
 from app.service import ScheduleService
 from app.storage import ShiftStore
 
@@ -26,20 +26,26 @@ if not settings.line_channel_secret:
 if not settings.line_channel_access_token:
     logger.error("LINE_CHANNEL_ACCESS_TOKEN is empty — replies will fail")
 
-store = ShiftStore(settings.database_path)
+store = ShiftStore(
+    settings.database_path,
+    database_url=settings.database_url,
+)
 line = LineClient(
     channel_secret=settings.line_channel_secret,
     channel_access_token=settings.line_channel_access_token,
 )
 service = ScheduleService(store)
 
-app = FastAPI(title="LINE Shift Scheduler", version="1.0.0")
+app = FastAPI(title="LINE Shift Scheduler", version="1.1.0")
 
 
 @app.get("/health")
 def health() -> Dict[str, str]:
+    db_ok = store.ping()
     return {
-        "status": "ok",
+        "status": "ok" if db_ok else "degraded",
+        "db": settings.db_backend,
+        "db_ok": str(db_ok).lower(),
         "has_secret": str(bool(settings.line_channel_secret)).lower(),
         "has_token": str(bool(settings.line_channel_access_token)).lower(),
     }
@@ -105,7 +111,8 @@ def _handle_event(event: Dict[str, Any]) -> None:
     source_type = source.get("type")
     user_id = source.get("userId") or ""
 
-    logger.info("Text from %s: %r", source_type, text[:80])
+    preview = text.replace("\n", "\\n")[:120]
+    logger.info("Text from %s: %r", source_type, preview)
 
     # group / room / user (1:1 for testing)
     if source_type == "group":
@@ -124,14 +131,8 @@ def _handle_event(event: Dict[str, Any]) -> None:
     if not group_id:
         return
 
-    try:
-        command = parse_command(text)
-    except ValueError as exc:
-        line.reply_text(reply_token, f"⚠️ {exc}")
-        return
-
-    if command is None:
-        # Not a bot command — stay silent in group chats
+    parsed = parse_message(text)
+    if parsed.ignore:
         logger.info("Ignored non-command text")
         return
 
@@ -145,11 +146,15 @@ def _handle_event(event: Dict[str, Any]) -> None:
         room_id=room_id if source_type == "room" else None,
     )
 
-    reply = service.handle(
-        command,
+    reply = service.handle_message(
+        parsed,
         group_id=group_id,
         user_id=user_id,
         display_name=display_name,
     )
-    logger.info("Replying (%d chars) as command=%s", len(reply), command.type)
+    if not reply:
+        logger.info("No reply content")
+        return
+
+    logger.info("Replying (%d chars)", len(reply))
     line.reply_text(reply_token, reply)
