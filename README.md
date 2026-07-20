@@ -91,27 +91,85 @@ https://<你的-ngrok-網域>/webhook
 
 > 本機除錯若暫時跳過簽章驗證，可設 `SKIP_SIGNATURE_VERIFY=true`（**正式環境請關閉**）。
 
-## 部署到 Render（免費）
+## 部署到 Render（新手逐步）
 
-1. 將專案推上 GitHub
-2. [Render](https://render.com/) → New → Web Service → 連 repo
-3. 設定：
-   - **Runtime**: Python
-   - **Build Command**: `pip install -r requirements.txt`
-   - **Start Command**: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-4. Environment：
-   - `LINE_CHANNEL_SECRET`
-   - `LINE_CHANNEL_ACCESS_TOKEN`
-   - `DATABASE_PATH` = `/tmp/shifts.db`（或 `./data/shifts.db`）
-5. 部署完成後，Webhook URL 設為：
+Repo 已在 GitHub：https://github.com/morrislin1114/line-scheduler
 
-   `https://<你的-render-服務>.onrender.com/webhook`
+### A. 註冊 / 登入 Render
+
+1. 開啟 https://render.com/ → **Get Started**
+2. 建議用 **GitHub** 帳號登入（之後才能一鍵連 repo）
+3. 授權 Render 讀取你的 GitHub（至少允許 `line-scheduler` 這個 repo）
+
+### B. 建立 Web Service
+
+1. 登入後到 Dashboard → **New +** → **Web Service**
+2. 若出現 Connect GitHub：選 **Connect account** / 授權
+3. 在 repo 列表找到 **`morrislin1114/line-scheduler`** → **Connect**
+4. 填寫設定（名稱可自訂）：
+
+| 欄位 | 請填 |
+|------|------|
+| **Name** | `line-scheduler`（會變成網址的一部分） |
+| **Region** | 選離台灣近的，例如 Singapore（若有）或預設 |
+| **Branch** | `main` |
+| **Root Directory** | 留空 |
+| **Runtime** | `Python 3` |
+| **Build Command** | `pip install -r requirements.txt` |
+| **Start Command** | `uvicorn app.main:app --host 0.0.0.0 --port $PORT` |
+| **Instance Type** | **Free** |
+
+5. 展開 **Environment Variables** → **Add Environment Variable**，新增：
+
+| Key | Value |
+|-----|--------|
+| `LINE_CHANNEL_SECRET` | LINE Developers → Channel → Basic settings 的 **Channel secret** |
+| `LINE_CHANNEL_ACCESS_TOKEN` | Messaging API 分頁的 **Channel access token**（長字串） |
+| `DATABASE_PATH` | `/tmp/shifts.db` |
+
+6. 按 **Create Web Service**（或 Deploy Web Service）
+7. 等 Logs 出現類似 `Uvicorn running on...` / 狀態變 **Live**（第一次可能 3–10 分鐘）
+8. 複製服務網址，例如：
+
+   `https://line-scheduler-xxxx.onrender.com`
+
+9. 瀏覽器開：`https://你的網址/health`  
+   應看到：`{"status":"ok"}`
+
+### C. 把 Webhook 接到 LINE
+
+1. [LINE Developers Console](https://developers.line.biz/console/) → 你的 Messaging API channel  
+2. **Messaging API** 分頁 → **Webhook URL** 填：
+
+   ```text
+   https://你的-render-網址.onrender.com/webhook
+   ```
+
+3. 打開 **Use webhook**  
+4. 按 **Verify**（成功會顯示成功；若失敗等 Render 醒來再按一次，免費版有冷啟動）  
+5. 建議關閉：自動回應訊息、歡迎訊息（在 [OA Manager](https://manager.line.biz/)）  
+6. 確認 bot 可加入群組 → 把官方帳號 **加入排班群組**  
+7. 在群組試：
+
+   - `說明`
+   - `7/21 9-13`
+   - `查詢`
+
+### D. 之後改程式怎麼更新？
+
+本機改完後：
+
+```bash
+git add -A && git commit -m "your message" && git push
+```
+
+Render 若已開 **Auto-Deploy**，推到 `main` 會自動重新部署。
 
 ### 注意：SQLite 與免費方案
 
-Render 免費實例重啟後**磁碟可能清空**，班表有遺失風險。若需要持久化，可改掛外部免費 Postgres（如 Neon）或改用有 volume 的方案（Railway 等）。數十人、可接受偶爾重建班表時，SQLite 通常夠用。
-
-LINE 免費訊息有月額度；本 bot **只用 Reply**（回應用戶訊息），不主動 Push。
+- Render **Free** 一段時間沒人打會**睡著**，第一次回應可能慢 30–60 秒（LINE Verify 或第一則訊息）。
+- 免費實例重啟後**磁碟可能清空**，班表有遺失風險。數十人、可接受偶爾重建時 SQLite 通常夠用；要持久化可再改 Neon 等免費 Postgres。
+- LINE 免費訊息有月額度；本 bot **只用 Reply**，不主動 Push。
 
 ## 開發與測試
 
