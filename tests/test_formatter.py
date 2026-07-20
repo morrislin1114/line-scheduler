@@ -31,6 +31,11 @@ def test_format_list_empty():
     assert "沒有今日之後的排班" in text
 
 
+def test_format_list_with_days_empty():
+    text = format_list([], days=7)
+    assert "7 天內" in text
+
+
 def test_format_list_grouped():
     shifts = [
         _shift(1, date(2026, 7, 21), 9, 13, "Morris"),

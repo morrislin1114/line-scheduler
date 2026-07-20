@@ -194,20 +194,46 @@ class ShiftStore:
             ).fetchone()
             return self._row_to_shift(row)
 
-    def list_from_date(self, group_id: str, from_date: date) -> List[Shift]:
+    def list_from_date(
+        self,
+        group_id: str,
+        from_date: date,
+        to_date: Optional[date] = None,
+    ) -> List[Shift]:
+        """List shifts with shift_date in [from_date, to_date] (inclusive).
+
+        If to_date is None, only lower bound is applied (all future).
+        """
         ph = self._ph()
-        date_val: Any = from_date if self.backend == "postgres" else from_date.isoformat()
+        from_val: Any = from_date if self.backend == "postgres" else from_date.isoformat()
         with self._conn() as conn:
-            rows = self._execute(
-                conn,
-                f"""
-                SELECT * FROM shifts
-                WHERE group_id = {ph} AND shift_date >= {ph}
-                ORDER BY shift_date ASC, start_hour ASC, end_hour ASC,
-                         person_name ASC, id ASC
-                """,
-                (group_id, date_val),
-            ).fetchall()
+            if to_date is None:
+                rows = self._execute(
+                    conn,
+                    f"""
+                    SELECT * FROM shifts
+                    WHERE group_id = {ph} AND shift_date >= {ph}
+                    ORDER BY shift_date ASC, start_hour ASC, end_hour ASC,
+                             person_name ASC, id ASC
+                    """,
+                    (group_id, from_val),
+                ).fetchall()
+            else:
+                to_val: Any = (
+                    to_date if self.backend == "postgres" else to_date.isoformat()
+                )
+                rows = self._execute(
+                    conn,
+                    f"""
+                    SELECT * FROM shifts
+                    WHERE group_id = {ph}
+                      AND shift_date >= {ph}
+                      AND shift_date <= {ph}
+                    ORDER BY shift_date ASC, start_hour ASC, end_hour ASC,
+                             person_name ASC, id ASC
+                    """,
+                    (group_id, from_val, to_val),
+                ).fetchall()
         return [self._row_to_shift(r) for r in rows]
 
     def delete_latest(

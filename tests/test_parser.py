@@ -12,6 +12,21 @@ def test_list_command():
     cmd = parse_command("查詢")
     assert cmd is not None
     assert cmd.type == CommandType.LIST
+    assert cmd.days is None
+
+
+def test_list_with_days():
+    cmd = parse_command("查詢 7")
+    assert cmd is not None
+    assert cmd.type == CommandType.LIST
+    assert cmd.days == 7
+
+
+def test_list_days_invalid():
+    with pytest.raises(ValueError, match="1 以上"):
+        parse_command("查詢 0")
+    with pytest.raises(ValueError, match="最多"):
+        parse_command("查詢 999")
 
 
 def test_help_commands():

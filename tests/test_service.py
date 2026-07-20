@@ -204,6 +204,57 @@ def test_list_excludes_past(tmp_path: Path):
     assert "共 1 筆" in listed
 
 
+def test_list_with_days_window(tmp_path: Path):
+    from app.models import NewShift
+
+    store = ShiftStore(tmp_path / "t.db")
+    store.add_shift(
+        NewShift(
+            group_id="g",
+            shift_date=date(2026, 7, 21),
+            start_hour=9,
+            end_hour=12,
+            person_name="Near",
+            created_by_user_id="u",
+            created_by_name="A",
+        )
+    )
+    store.add_shift(
+        NewShift(
+            group_id="g",
+            shift_date=date(2026, 8, 1),
+            start_hour=9,
+            end_hour=12,
+            person_name="Far",
+            created_by_user_id="u",
+            created_by_name="A",
+        )
+    )
+    svc = ScheduleService(store)
+    today = date(2026, 7, 21)
+    msg = svc.handle(
+        Command(type=CommandType.LIST, days=7),
+        group_id="g",
+        user_id="u",
+        display_name="A",
+        today=today,
+    )
+    assert "7 天內" in msg
+    assert "Near" in msg
+    assert "Far" not in msg
+    assert "共 1 筆" in msg
+
+    all_msg = svc.handle(
+        Command(type=CommandType.LIST, days=None),
+        group_id="g",
+        user_id="u",
+        display_name="A",
+        today=today,
+    )
+    assert "Near" in all_msg and "Far" in all_msg
+    assert "共 2 筆" in all_msg
+
+
 def test_multi_line_batch_add(tmp_path: Path):
     from app.parser import parse_message
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from datetime import date
-from typing import Iterable, List, Sequence
+from typing import Iterable, List, Optional, Sequence
 
 from app.models import Shift
 
@@ -36,16 +36,27 @@ def format_shift_brief(shift: Shift) -> str:
     )
 
 
-def format_list(shifts: Iterable[Shift]) -> str:
+def format_list(
+    shifts: Iterable[Shift],
+    *,
+    days: Optional[int] = None,
+) -> str:
     items: List[Shift] = list(shifts)
+    if days is not None:
+        title = f"📅 排班一覽（今日起 {days} 天內）"
+        empty = f"目前沒有今日起 {days} 天內的排班。可用 7/21 9-13 新增。"
+    else:
+        title = "📅 排班一覽（今日起）"
+        empty = "目前沒有今日之後的排班。可用 7/21 9-13 新增。"
+
     if not items:
-        return "目前沒有今日之後的排班。可用 7/21 9-13 新增。"
+        return empty
 
     by_date: dict[date, List[Shift]] = defaultdict(list)
     for s in items:
         by_date[s.shift_date].append(s)
 
-    lines = ["📅 排班一覽（今日起）", ""]
+    lines = [title, ""]
     for d in sorted(by_date.keys()):
         lines.append(format_date_heading(d))
         for s in by_date[d]:
@@ -122,7 +133,9 @@ HELP_TEXT = """📋 排班 Bot 說明
 
 【查詢】
 查詢
-→ 列出今日之後的班表
+→ 列出今日之後的全部班表
+查詢 7
+→ 列出今日算起 7 天內的班表（含今天）
 
 時間為 24 小時制整點，例如 9-13、13-19。
 可重複排班（不擋同人同時段）。

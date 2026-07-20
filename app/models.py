@@ -22,6 +22,8 @@ class Command:
     start_hour: Optional[int] = None
     end_hour: Optional[int] = None
     person_name: Optional[str] = None  # None means "self"
+    # LIST only: number of days from today inclusive; None = no upper bound
+    days: Optional[int] = None
 
 
 @dataclass(frozen=True)

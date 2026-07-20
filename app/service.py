@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 from typing import List, Optional
 
 from app import formatter
@@ -124,8 +124,14 @@ class ScheduleService:
             return formatter.HELP_TEXT.strip()
 
         if command.type == CommandType.LIST:
-            shifts = self.store.list_from_date(group_id, today)
-            return formatter.truncate_reply(formatter.format_list(shifts))
+            to_date = None
+            if command.days is not None:
+                # 查詢 7 = today .. today+6 (7 days inclusive)
+                to_date = today + timedelta(days=command.days - 1)
+            shifts = self.store.list_from_date(group_id, today, to_date=to_date)
+            return formatter.truncate_reply(
+                formatter.format_list(shifts, days=command.days)
+            )
 
         if command.type == CommandType.ADD:
             shift = self._add(command, group_id, user_id, display_name)

@@ -17,6 +17,11 @@ _ADD_RE = re.compile(
 _CANCEL_RE = re.compile(
     r"^取消\s+(\d{1,2})/(\d{1,2})\s+(\d{1,2})-(\d{1,2})(?:\s+(.+))?$"
 )
+# 查詢 / 查詢 7  → days inclusive from today
+_LIST_RE = re.compile(r"^查詢(?:\s+(\d{1,3}))?$")
+
+# Safety cap for 查詢 N
+MAX_LIST_DAYS = 366
 
 
 def _today_taipei() -> date:
@@ -65,8 +70,17 @@ def parse_command(text: str, today: Optional[date] = None) -> Optional[Command]:
     if not raw:
         return None
 
-    if raw == "查詢":
-        return Command(type=CommandType.LIST)
+    list_m = _LIST_RE.match(raw)
+    if list_m:
+        days_raw = list_m.group(1)
+        if days_raw is None:
+            return Command(type=CommandType.LIST, days=None)
+        days = int(days_raw)
+        if days < 1:
+            raise ValueError("查詢天數須為 1 以上的整數，例如：查詢 7")
+        if days > MAX_LIST_DAYS:
+            raise ValueError(f"查詢天數最多 {MAX_LIST_DAYS} 天")
+        return Command(type=CommandType.LIST, days=days)
 
     if raw in {"說明", "help", "Help", "HELP"}:
         return Command(type=CommandType.HELP)
