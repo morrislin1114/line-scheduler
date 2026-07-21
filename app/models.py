@@ -21,9 +21,13 @@ class Command:
     shift_date: Optional[date] = None
     start_hour: Optional[int] = None
     end_hour: Optional[int] = None
-    person_name: Optional[str] = None  # None means "self"
-    # LIST only: number of days from today inclusive; None = no upper bound
+    person_name: Optional[str] = None  # None means "self" / for LIST = filter
+    # LIST: rolling window (今日起 N 天); ignored if list_from is set
     days: Optional[int] = None
+    # LIST: explicit date range (inclusive), e.g. 查詢 7/21 or 本週
+    list_from: Optional[date] = None
+    list_to: Optional[date] = None
+    list_label: Optional[str] = None  # display scope, e.g. 本週 / 7/21（二）
 
 
 @dataclass(frozen=True)

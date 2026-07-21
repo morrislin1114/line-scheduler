@@ -134,16 +134,21 @@ class ScheduleService:
             return formatter.HELP_TEXT.strip()
 
         if command.type == CommandType.LIST:
-            to_date = None
-            if command.days is not None:
-                # 查詢 7 = today .. today+6 (7 days inclusive)
-                to_date = today + timedelta(days=command.days - 1)
+            if command.list_from is not None:
+                from_date = command.list_from
+                to_date = command.list_to
+            else:
+                from_date = today
+                to_date = None
+                if command.days is not None:
+                    # 查詢 7 = today .. today+6 (7 days inclusive)
+                    to_date = today + timedelta(days=command.days - 1)
             person = command.person_name
             if person and person in {"我", "me", "Me", "ME"}:
                 person = display_name
             shifts = self.store.list_from_date(
                 group_id,
-                today,
+                from_date,
                 to_date=to_date,
                 person_name=person,
             )
@@ -152,6 +157,7 @@ class ScheduleService:
                     shifts,
                     days=command.days,
                     person_name=person,
+                    list_label=command.list_label,
                 )
             )
 

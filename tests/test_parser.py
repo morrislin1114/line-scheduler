@@ -43,6 +43,50 @@ def test_list_person_and_days():
     assert c3.days == 14 and c3.person_name == "Mary Jane"
 
 
+def test_list_specific_date():
+    today = date(2026, 7, 20)
+    cmd = parse_command("查詢 7/21", today=today)
+    assert cmd is not None
+    assert cmd.list_from == date(2026, 7, 21)
+    assert cmd.list_to == date(2026, 7, 21)
+    assert cmd.list_label is not None
+    assert "7/21" in cmd.list_label
+
+
+def test_list_date_with_person():
+    today = date(2026, 7, 20)
+    cmd = parse_command("查詢 7/22 Morris", today=today)
+    assert cmd is not None
+    assert cmd.list_from == date(2026, 7, 22)
+    assert cmd.person_name == "Morris"
+
+
+def test_list_this_and_next_week():
+    # 2026-07-20 is Monday
+    today = date(2026, 7, 20)
+    this_w = parse_command("查詢 本週", today=today)
+    assert this_w is not None
+    assert this_w.list_from == date(2026, 7, 20)
+    assert this_w.list_to == date(2026, 7, 26)
+    assert this_w.list_label and "本週" in this_w.list_label
+
+    next_w = parse_command("查詢 下週", today=today)
+    assert next_w is not None
+    assert next_w.list_from == date(2026, 7, 27)
+    assert next_w.list_to == date(2026, 8, 2)
+
+    # 本周 alias + person
+    alias = parse_command("查詢 本周 Morris", today=today)
+    assert alias is not None
+    assert alias.person_name == "Morris"
+    assert alias.list_from == date(2026, 7, 20)
+
+
+def test_list_conflict_modes():
+    with pytest.raises(ValueError, match="擇一"):
+        parse_command("查詢 7 本週")
+
+
 def test_list_days_invalid():
     with pytest.raises(ValueError, match="1 以上"):
         parse_command("查詢 0")

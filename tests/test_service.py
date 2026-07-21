@@ -257,6 +257,62 @@ def test_list_with_days_window(tmp_path: Path):
     assert "共 2 筆" in all_msg
 
 
+def test_list_specific_date_and_week(tmp_path: Path):
+    from app.models import NewShift
+
+    store = ShiftStore(tmp_path / "t.db")
+    for d, name in (
+        (date(2026, 7, 20), "Mon"),
+        (date(2026, 7, 22), "Wed"),
+        (date(2026, 7, 28), "NextTue"),
+    ):
+        store.add_shift(
+            NewShift(
+                group_id="g",
+                shift_date=d,
+                start_hour=9,
+                end_hour=12,
+                person_name=name,
+                created_by_user_id="u",
+                created_by_name="A",
+            )
+        )
+    svc = ScheduleService(store)
+    today = date(2026, 7, 20)  # Monday
+
+    day_msg = svc.handle(
+        Command(
+            type=CommandType.LIST,
+            list_from=date(2026, 7, 22),
+            list_to=date(2026, 7, 22),
+            list_label="7/22（三）",
+        ),
+        group_id="g",
+        user_id="u",
+        display_name="A",
+        today=today,
+    )
+    assert "Wed" in day_msg
+    assert "Mon" not in day_msg
+    assert "NextTue" not in day_msg
+
+    week_msg = svc.handle(
+        Command(
+            type=CommandType.LIST,
+            list_from=date(2026, 7, 20),
+            list_to=date(2026, 7, 26),
+            list_label="本週 7/20–7/26",
+        ),
+        group_id="g",
+        user_id="u",
+        display_name="A",
+        today=today,
+    )
+    assert "Mon" in week_msg and "Wed" in week_msg
+    assert "NextTue" not in week_msg
+    assert "本週" in week_msg
+
+
 def test_list_by_person_and_self_alias(tmp_path: Path):
     from app.models import NewShift
 

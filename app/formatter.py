@@ -61,31 +61,30 @@ def format_list(
     *,
     days: Optional[int] = None,
     person_name: Optional[str] = None,
+    list_label: Optional[str] = None,
 ) -> str:
     items: List[Shift] = list(shifts)
     scope_bits: List[str] = []
     if person_name:
         scope_bits.append(person_name)
-    if days is not None:
+    if list_label:
+        scope_bits.append(list_label)
+    elif days is not None:
         scope_bits.append(f"今日起 {days} 天內")
     else:
         scope_bits.append("今日起")
 
     title = "📅 排班一覽（" + " · ".join(scope_bits) + "）"
-    if person_name and days is not None:
+    scope_for_empty = list_label or (
+        f"今日起 {days} 天內" if days is not None else "今日之後"
+    )
+    if person_name:
         empty = (
-            f"目前沒有 {person_name} 在今日起 {days} 天內的排班。"
+            f"目前沒有 {person_name} 在{scope_for_empty}的排班。"
             f"可用 7/21 9-13 {person_name} 新增。"
         )
-    elif person_name:
-        empty = (
-            f"目前沒有 {person_name} 今日之後的排班。"
-            f"可用 7/21 9-13 {person_name} 新增。"
-        )
-    elif days is not None:
-        empty = f"目前沒有今日起 {days} 天內的排班。可用 7/21 9-13 新增。"
     else:
-        empty = "目前沒有今日之後的排班。可用 7/21 9-13 新增。"
+        empty = f"目前沒有{scope_for_empty}的排班。可用 7/21 9-13 新增。"
 
     if not items:
         return empty
@@ -200,9 +199,12 @@ HELP_TEXT = """📋 排班說明
 【查詢】
 查詢              全部（今日起）
 查詢 7            今日起 7 天內
+查詢 7/21         指定某一天
+查詢 本週         本週一～日
+查詢 下週         下週一～日
 查詢 Morris       指定人名
 查詢 我           自己的班
-查詢 7 Morris     人名＋天數（可對調）
+查詢 本週 Morris  可與人名併用
 
 ・時間：24 小時制整點（9-13、13-19）
 ・可重複排班
