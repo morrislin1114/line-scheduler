@@ -2,7 +2,13 @@
 
 from datetime import date, datetime, timezone
 
-from app.formatter import format_list, format_add_success, HELP_TEXT
+from app.formatter import (
+    HELP_TEXT,
+    format_add_success,
+    format_cancel_success,
+    format_day_result,
+    format_list,
+)
 from app.models import Shift
 
 
@@ -51,13 +57,31 @@ def test_format_list_grouped():
     assert "共 3 筆" in text
 
 
-def test_format_add_success():
+def test_format_day_result_empty():
+    text = format_day_result(date(2026, 7, 21), [])
+    assert "無人排班" in text
+    assert "7/21" in text
+
+
+def test_format_add_success_includes_day():
     s = _shift(1, date(2026, 7, 21), 9, 13, "Morris")
-    text = format_add_success(s)
+    day = [s, _shift(2, date(2026, 7, 21), 13, 19, "John")]
+    text = format_add_success(s, day)
     assert text.startswith("✅")
     assert "Morris" in text
+    assert "目前" in text
+    assert "John" in text
 
 
-def test_help_mentions_commands():
+def test_format_cancel_success_empty_day():
+    s = _shift(1, date(2026, 7, 21), 9, 13, "Morris")
+    text = format_cancel_success(s, [])
+    assert "已取消" in text
+    assert "無人排班" in text
+
+
+def test_help_concise():
     assert "查詢" in HELP_TEXT
     assert "取消" in HELP_TEXT
+    assert "新增" in HELP_TEXT
+    assert "查詢 我" in HELP_TEXT

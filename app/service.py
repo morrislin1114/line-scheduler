@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import date, timedelta
-from typing import List, Optional
+from typing import Dict, List, Optional, Sequence
 
 from app import formatter
 from app.models import Command, CommandType, NewShift, Shift
@@ -73,28 +73,38 @@ class ScheduleService:
                     assert command.shift_date is not None
                     assert command.start_hour is not None
                     assert command.end_hour is not None
+                    day = self._shifts_on_date(group_id, command.shift_date)
                     cancel_misses.append(
                         formatter.format_cancel_not_found(
                             command.shift_date,
                             command.start_hour,
                             command.end_hour,
                             label,
+                            day_shifts=day,
                         )
                     )
             else:
                 # LIST/HELP mixed into multi-line already rejected in parser
-                parts.append(self.handle(
-                    command,
-                    group_id=group_id,
-                    user_id=user_id,
-                    display_name=display_name,
-                    today=today,
-                ))
+                parts.append(
+                    self.handle(
+                        command,
+                        group_id=group_id,
+                        user_id=user_id,
+                        display_name=display_name,
+                        today=today,
+                    )
+                )
 
         if added:
-            parts.append(formatter.format_add_batch_success(added))
+            snaps = self._snapshots_for_dates(
+                group_id, [s.shift_date for s in added]
+            )
+            parts.append(formatter.format_add_batch_success(added, snaps))
         if cancelled:
-            parts.append(formatter.format_cancel_batch_success(cancelled))
+            snaps = self._snapshots_for_dates(
+                group_id, [s.shift_date for s in cancelled]
+            )
+            parts.append(formatter.format_cancel_batch_success(cancelled, snaps))
         if cancel_misses:
             parts.extend(cancel_misses)
         if parsed.line_errors:
@@ -147,12 +157,14 @@ class ScheduleService:
 
         if command.type == CommandType.ADD:
             shift = self._add(command, group_id, user_id, display_name)
-            return formatter.format_add_success(shift)
+            day = self._shifts_on_date(group_id, shift.shift_date)
+            return formatter.format_add_success(shift, day)
 
         if command.type == CommandType.CANCEL:
             deleted, label = self._cancel(command, group_id, user_id, display_name)
+            assert command.shift_date is not None
+            day = self._shifts_on_date(group_id, command.shift_date)
             if deleted is None:
-                assert command.shift_date is not None
                 assert command.start_hour is not None
                 assert command.end_hour is not None
                 return formatter.format_cancel_not_found(
@@ -160,10 +172,22 @@ class ScheduleService:
                     command.start_hour,
                     command.end_hour,
                     label,
+                    day_shifts=day,
                 )
-            return formatter.format_cancel_success(deleted)
+            return formatter.format_cancel_success(deleted, day)
 
         return "無法處理此指令。"
+
+    def _shifts_on_date(self, group_id: str, d: date) -> List[Shift]:
+        return self.store.list_from_date(group_id, d, to_date=d)
+
+    def _snapshots_for_dates(
+        self, group_id: str, dates: Sequence[date]
+    ) -> Dict[date, List[Shift]]:
+        out: Dict[date, List[Shift]] = {}
+        for d in sorted(set(dates)):
+            out[d] = self._shifts_on_date(group_id, d)
+        return out
 
     def _add(
         self,

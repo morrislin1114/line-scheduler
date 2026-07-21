@@ -33,6 +33,7 @@ def test_add_list_cancel_self(tmp_path: Path):
     )
     assert "已新增" in msg
     assert "Morris" in msg
+    assert "目前" in msg
 
     listed = svc.handle(
         Command(type=CommandType.LIST),
@@ -59,6 +60,7 @@ def test_add_list_cancel_self(tmp_path: Path):
         today=today,
     )
     assert "已取消" in cmsg
+    assert "無人排班" in cmsg
 
     listed2 = svc.handle(
         Command(type=CommandType.LIST),
@@ -315,6 +317,7 @@ def test_multi_line_batch_add(tmp_path: Path):
     assert msg is not None
     assert "已新增 3 筆" in msg
     assert "Morris" in msg and "Kelly" in msg and "Annie" in msg
+    assert "目前" in msg
 
     listed = svc.handle(
         Command(type=CommandType.LIST),
