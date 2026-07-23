@@ -51,8 +51,8 @@ def test_format_list_grouped():
     text = format_list(shifts)
     assert "排班一覽" in text
     assert "7/21" in text
-    assert "09:00–13:00  Morris" in text
-    assert "13:00–19:00  John" in text
+    assert "09–13  Morris" in text
+    assert "13–19  John" in text
     assert "7/22" in text
     assert "共 3 筆" in text
 

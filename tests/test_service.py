@@ -146,6 +146,49 @@ def test_cancel_not_found(tmp_path: Path):
     assert "找不到" in msg
 
 
+def test_cancel_without_name_any_person(tmp_path: Path):
+    """取消時段即可，不限自己。"""
+    svc = _svc(tmp_path)
+    today = date(2026, 7, 20)
+    group = "g"
+    svc.handle(
+        Command(
+            type=CommandType.ADD,
+            shift_date=date(2026, 7, 21),
+            start_hour=9,
+            end_hour=13,
+            person_name="Kelly",
+        ),
+        group_id=group,
+        user_id="u-other",
+        display_name="Admin",
+        today=today,
+    )
+    msg = svc.handle(
+        Command(
+            type=CommandType.CANCEL,
+            shift_date=date(2026, 7, 21),
+            start_hour=9,
+            end_hour=13,
+            person_name=None,
+        ),
+        group_id=group,
+        user_id="u-anyone",
+        display_name="SomeoneElse",
+        today=today,
+    )
+    assert "已取消" in msg
+    assert "Kelly" in msg
+    listed = svc.handle(
+        Command(type=CommandType.LIST),
+        group_id=group,
+        user_id="u-anyone",
+        display_name="SomeoneElse",
+        today=today,
+    )
+    assert "沒有今日之後" in listed
+
+
 def test_group_isolation(tmp_path: Path):
     svc = _svc(tmp_path)
     today = date(2026, 7, 20)

@@ -224,7 +224,11 @@ class ScheduleService:
         group_id: str,
         user_id: str,
         display_name: str,
-    ) -> tuple[Optional[Shift], str]:
+    ) -> tuple[Optional[Shift], Optional[str]]:
+        """
+        Cancel by slot. With a name → that person only.
+        Without a name → latest shift on that date/slot (anyone).
+        """
         assert command.shift_date is not None
         assert command.start_hour is not None
         assert command.end_hour is not None
@@ -244,14 +248,5 @@ class ScheduleService:
             command.shift_date,
             command.start_hour,
             command.end_hour,
-            created_by_user_id=user_id,
         )
-        if deleted is None:
-            deleted = self.store.delete_latest(
-                group_id,
-                command.shift_date,
-                command.start_hour,
-                command.end_hour,
-                person_name=display_name,
-            )
-        return deleted, display_name
+        return deleted, None

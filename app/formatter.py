@@ -12,7 +12,8 @@ _WEEKDAYS = "一二三四五六日"
 
 
 def format_time_range(start_hour: int, end_hour: int) -> str:
-    return f"{start_hour:02d}:00–{end_hour:02d}:00"
+    """24h whole hours only, e.g. 08–13 (no minutes)."""
+    return f"{start_hour:02d}–{end_hour:02d}"
 
 
 def format_date_heading(d: date) -> str:
@@ -161,14 +162,16 @@ def format_cancel_not_found(
     shift_date: date,
     start_hour: int,
     end_hour: int,
-    person_label: str,
+    person_label: Optional[str] = None,
     day_shifts: Optional[Sequence[Shift]] = None,
 ) -> str:
-    text = (
-        "找不到符合的排班：\n"
+    slot = (
         f"{format_date_heading(shift_date)} "
-        f"{format_time_range(start_hour, end_hour)}  {person_label}"
+        f"{format_time_range(start_hour, end_hour)}"
     )
+    if person_label:
+        slot = f"{slot}  {person_label}"
+    text = f"找不到符合的排班：\n{slot}"
     if day_shifts is not None:
         text += "\n\n" + format_day_result(shift_date, day_shifts)
     return text
@@ -194,19 +197,20 @@ HELP_TEXT = """📋 排班說明
 【取消】可多行
 取消 7/21 9-13
 取消 7/22 13-19 John
+・只要時段即可（不限自己）；有寫名字則只取消該人
 ・每次只取消符合條件的最新一筆
 
 【查詢】
 查詢              全部（今日起）
 查詢 7            今日起 7 天內
 查詢 7/21         指定某一天
-查詢 本週         本週一～日
-查詢 下週         下週一～日
+查詢 本週／下週   週一～日
+查詢 本月／下個月 整月
 查詢 Morris       指定人名
 查詢 我           自己的班
-查詢 本週 Morris  可與人名併用
+查詢 本月 Morris  可與人名併用
 
-・時間：24 小時制整點（9-13、13-19）
+・時間：24 小時制整點，顯示如 08–13
 ・可重複排班
 """
 

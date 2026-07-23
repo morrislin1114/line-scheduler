@@ -87,6 +87,25 @@ def test_list_conflict_modes():
         parse_command("查詢 7 本週")
 
 
+def test_list_this_and_next_month():
+    today = date(2026, 7, 20)
+    this_m = parse_command("查詢 本月", today=today)
+    assert this_m is not None
+    assert this_m.list_from == date(2026, 7, 1)
+    assert this_m.list_to == date(2026, 7, 31)
+    assert this_m.list_label and "本月" in this_m.list_label
+
+    next_m = parse_command("查詢 下個月", today=today)
+    assert next_m is not None
+    assert next_m.list_from == date(2026, 8, 1)
+    assert next_m.list_to == date(2026, 8, 31)
+
+    alias = parse_command("查詢 下月 Morris", today=today)
+    assert alias is not None
+    assert alias.person_name == "Morris"
+    assert alias.list_from == date(2026, 8, 1)
+
+
 def test_list_days_invalid():
     with pytest.raises(ValueError, match="1 以上"):
         parse_command("查詢 0")

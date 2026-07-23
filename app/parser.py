@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+import calendar
 from datetime import date, timedelta
 from typing import List, Optional, Tuple
 from zoneinfo import ZoneInfo
@@ -22,11 +23,15 @@ _DATE_TOKEN_RE = re.compile(r"^(\d{1,2})/(\d{1,2})$")
 # Safety cap for 查詢 N
 MAX_LIST_DAYS = 366
 
-_WEEK_KEYWORDS = {
-    "本週": "this_week",
-    "本周": "this_week",
-    "下週": "next_week",
-    "下周": "next_week",
+# Range keywords for 查詢 (week / month)
+_RANGE_KEYWORDS = {
+    "本週": ("week", "this_week"),
+    "本周": ("week", "this_week"),
+    "下週": ("week", "next_week"),
+    "下周": ("week", "next_week"),
+    "本月": ("month", "this_month"),
+    "下個月": ("month", "next_month"),
+    "下月": ("month", "next_month"),
 }
 
 
@@ -88,6 +93,21 @@ def week_range(today: date, which: str) -> Tuple[date, date]:
     raise ValueError(f"未知週別：{which}")
 
 
+def month_range(today: date, which: str) -> Tuple[date, date]:
+    """Return first–last day inclusive for this or next calendar month."""
+    if which == "this_month":
+        year, month = today.year, today.month
+    elif which == "next_month":
+        if today.month == 12:
+            year, month = today.year + 1, 1
+        else:
+            year, month = today.year, today.month + 1
+    else:
+        raise ValueError(f"未知月份：{which}")
+    last_day = calendar.monthrange(year, month)[1]
+    return date(year, month, 1), date(year, month, last_day)
+
+
 _WEEKDAYS = "一二三四五六日"
 
 
@@ -127,8 +147,9 @@ def parse_list_command(
     - 查詢 7
     - 查詢 7/21
     - 查詢 本週 / 下週（本周／下周 亦可）
+    - 查詢 本月 / 下個月（下月 亦可）
     - 查詢 Morris / 查詢 我
-    - 可與人名併用：查詢 7/21 Morris、查詢 本週 Morris、查詢 Morris 7
+    - 可與人名併用：查詢 7/21 Morris、查詢 本月 Morris、查詢 Morris 7
     """
     if today is None:
         today = _today_taipei()
@@ -145,13 +166,14 @@ def parse_list_command(
 
     parts = rest.split()
     days: Optional[int] = None
-    week_mode: Optional[str] = None
+    range_kind: Optional[str] = None  # week | month
+    range_mode: Optional[str] = None
     date_token: Optional[str] = None
     name_parts: List[str] = []
 
     for p in parts:
-        if p in _WEEK_KEYWORDS and week_mode is None:
-            week_mode = _WEEK_KEYWORDS[p]
+        if p in _RANGE_KEYWORDS and range_mode is None:
+            range_kind, range_mode = _RANGE_KEYWORDS[p]
             continue
         if _DATE_TOKEN_RE.match(p) and date_token is None:
             date_token = p
@@ -167,13 +189,14 @@ def parse_list_command(
     modes = sum(
         [
             days is not None,
-            week_mode is not None,
+            range_mode is not None,
             date_token is not None,
         ]
     )
     if modes > 1:
         raise ValueError(
-            "請擇一條件：天數（查詢 7）、日期（查詢 7/21）、或本週／下週"
+            "請擇一條件：天數（查詢 7）、日期（查詢 7/21）、"
+            "本週／下週、或本月／下個月"
         )
 
     if date_token:
@@ -189,11 +212,22 @@ def parse_list_command(
             list_label=_date_label(d),
         )
 
-    if week_mode:
-        start, end = week_range(today, week_mode)
-        label = "本週" if week_mode == "this_week" else "下週"
-        # Human-readable span e.g. 本週 7/21–7/27
+    if range_mode and range_kind == "week":
+        start, end = week_range(today, range_mode)
+        label = "本週" if range_mode == "this_week" else "下週"
         span = f"{label} {start.month}/{start.day}–{end.month}/{end.day}"
+        return Command(
+            type=CommandType.LIST,
+            person_name=person,
+            list_from=start,
+            list_to=end,
+            list_label=span,
+        )
+
+    if range_mode and range_kind == "month":
+        start, end = month_range(today, range_mode)
+        label = "本月" if range_mode == "this_month" else "下個月"
+        span = f"{label} {start.year}/{start.month}"
         return Command(
             type=CommandType.LIST,
             person_name=person,

@@ -282,7 +282,20 @@ class ShiftStore:
                     (group_id, date_val, start_hour, end_hour, created_by_user_id),
                 ).fetchone()
             else:
-                return None
+                # Any person on that date/slot (latest one)
+                row = self._execute(
+                    conn,
+                    f"""
+                    SELECT * FROM shifts
+                    WHERE group_id = {ph}
+                      AND shift_date = {ph}
+                      AND start_hour = {ph}
+                      AND end_hour = {ph}
+                    ORDER BY id DESC
+                    LIMIT 1
+                    """,
+                    (group_id, date_val, start_hour, end_hour),
+                ).fetchone()
 
             if row is None:
                 return None
