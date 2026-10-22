@@ -112,7 +112,7 @@ def test_webhook_translate(client, monkeypatch):
     }
     r = c.post("/webhook", json=payload)
     assert r.status_code == 200
-    assert replies == ["印尼文：\nSelamat pagi"]
+    assert replies == ["Bahasa Indonesia:\nSelamat pagi"]
 
 
 def test_webhook_ignores_chat(client, monkeypatch):

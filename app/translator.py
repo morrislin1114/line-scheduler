@@ -129,11 +129,13 @@ def translation_reply(command: Command, translator: Translator) -> str:
         if exc.code == "no_key":
             return "翻譯還沒設定。請在環境變數加入 XAI_API_KEY 後重新部署。"
         return "翻譯失敗，請稍後再試。"
-    label = "印尼文" if target == "id" else "中文"
-    return truncate_reply(
-        f"{label}：\n{translated}",
-        notice="\n…（譯文過長已截斷）",
-    )
+    if target == "id":
+        label = "Bahasa Indonesia:"
+        notice = "\n…(terjemahan terpotong karena terlalu panjang)"
+    else:
+        label = "中文："
+        notice = "\n…（譯文過長已截斷）"
+    return truncate_reply(f"{label}\n{translated}", notice=notice)
 
 
 def _user_prompt(text: str, target: str) -> str:

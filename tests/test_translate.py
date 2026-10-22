@@ -153,7 +153,7 @@ def test_translation_reply_formats_result(monkeypatch: pytest.MonkeyPatch):
     cmd = parse_command("翻譯 早安")
     assert cmd is not None
     reply = translation_reply(cmd, Translator("secret-key", model="grok-4.7"))
-    assert reply == "印尼文：\nSelamat pagi"
+    assert reply == "Bahasa Indonesia:\nSelamat pagi"
     assert captured["url"].endswith("/v1/responses")
     assert captured["headers"]["Authorization"] == "Bearer secret-key"
     body = captured["json"]
