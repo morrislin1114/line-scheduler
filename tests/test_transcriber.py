@@ -12,7 +12,8 @@ from app.transcriber import (
 
 
 def test_transcript_reply_languages():
-    assert transcript_reply("Kelly", "明天早上九點見", "zh") == "語音 Kelly\n明天早上九點見"
+    assert transcript_reply("Kelly", "明天早上九点见", "zh") == "語音 Kelly\n明天早上九點見"
+    assert transcript_reply("Kelly", "这个软件的信息", "zh-CN") == "語音 Kelly\n這個軟體的資訊"
     assert (
         transcript_reply("Siti", "Besok masuk jam 9", "id")
         == "Suara Siti\nBesok masuk jam 9"
@@ -34,7 +35,7 @@ def test_transcribe_posts_file_last(monkeypatch: pytest.MonkeyPatch):
         text = ""
 
         def json(self):
-            return {"text": "明天九點見", "language": "zh", "duration": 2.0}
+            return {"text": "明天九点见", "language": "zh", "duration": 2.0}
 
     class FakeClient:
         def __init__(self, *args, **kwargs):

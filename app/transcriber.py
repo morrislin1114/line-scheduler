@@ -11,6 +11,8 @@ from app.formatter import truncate_reply
 
 logger = logging.getLogger(__name__)
 
+_traditional = None
+
 XAI_STT_URL = "https://api.x.ai/v1/stt"
 STT_MODEL = "grok-voice-transcribe-2.0"
 # LINE voice notes are short. Cap so a long clip cannot hold the reply open.
@@ -74,13 +76,30 @@ class Transcriber:
             raise TranscribeError("api", "invalid json") from exc
 
         text, language = _extract_transcript(data)
+        if _is_chinese(language):
+            text = to_traditional(text)
         return text, language
+
+
+def to_traditional(text: str) -> str:
+    """Simplified Chinese to Traditional Chinese used in Taiwan, including phrases."""
+    global _traditional
+    if _traditional is None:
+        import opencc
+
+        _traditional = opencc.OpenCC("s2twp")
+    return _traditional.convert(text)
+
+
+def _is_chinese(language: str) -> bool:
+    lang = language.lower().replace("_", "-")
+    return lang.startswith("zh") or lang.startswith("cmn") or lang.startswith("yue")
 
 
 def transcript_reply(name: str, text: str, language: str) -> str:
     """LINE reply for a finished transcript."""
     indonesian = language.lower().startswith("id")
-    cleaned = text.strip()
+    cleaned = to_traditional(text.strip()) if _is_chinese(language) else text.strip()
     if not cleaned:
         if indonesian:
             return "Tidak terdengar kata-kata."
