@@ -75,6 +75,48 @@ def test_translate_empty_is_usage_command():
     assert result.commands[0].source_text == ""
 
 
+def test_indonesian_translate_command():
+    auto = parse_command("terjemahkan Selamat pagi")
+    assert auto is not None
+    assert auto.type == CommandType.TRANSLATE
+    assert auto.reply_lang == "id"
+    assert auto.translate_target is None
+    assert auto.source_text == "Selamat pagi"
+
+    to_id = parse_command("Terjemahkan ke Indonesia 明天九點見")
+    assert to_id is not None
+    assert to_id.translate_target == "id"
+    assert to_id.source_text == "明天九點見"
+
+    to_zh = parse_command("terjemahkan ke bahasa Cina Besok masuk jam 9")
+    assert to_zh is not None
+    assert to_zh.translate_target == "zh"
+    assert to_zh.source_text == "Besok masuk jam 9"
+
+    slang = parse_command("terjemahin ke mandarin 早安")
+    assert slang is not None
+    assert slang.translate_target == "zh"
+    assert slang.source_text == "早安"
+
+
+def test_indonesian_translate_multiline_and_usage():
+    result = parse_message("terjemahkan\n明天請早點到\n記得帶證件")
+    assert len(result.commands) == 1
+    assert result.commands[0].reply_lang == "id"
+    assert result.commands[0].source_text == "明天請早點到\n記得帶證件"
+
+    empty = parse_command("terjemahkan")
+    assert empty is not None
+    reply = translation_reply(empty, Translator(""))
+    assert "terjemahkan ke Indonesia" in reply
+    assert "翻印尼" not in reply
+
+
+def test_terjemahan_is_not_a_command():
+    assert parse_command("terjemahan ini bagus") is None
+    assert parse_message("terjemahan ini bagus").ignore
+
+
 def test_plain_chat_not_translated():
     assert parse_message("大家好").ignore
     assert parse_message("Selamat pagi").ignore

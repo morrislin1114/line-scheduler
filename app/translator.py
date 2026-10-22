@@ -8,7 +8,7 @@ from typing import Any, Optional, Tuple
 
 import httpx
 
-from app.formatter import TRANSLATE_USAGE, truncate_reply
+from app.formatter import TRANSLATE_USAGE, TRANSLATE_USAGE_ID, truncate_reply
 from app.models import Command
 
 logger = logging.getLogger(__name__)
@@ -118,16 +118,24 @@ def detect_target(text: str) -> str:
 def translation_reply(command: Command, translator: Translator) -> str:
     """LINE reply for a translate command, including usage and errors."""
     text = (command.source_text or "").strip()
+    indonesian = command.reply_lang == "id"
     if not text:
-        return TRANSLATE_USAGE.strip()
+        usage = TRANSLATE_USAGE_ID if indonesian else TRANSLATE_USAGE
+        return usage.strip()
     if len(text) > MAX_SOURCE_CHARS:
+        if indonesian:
+            return f"Maksimal {MAX_SOURCE_CHARS} karakter sekali. Kirim sebagian dulu."
         return f"一次最多翻譯 {MAX_SOURCE_CHARS} 字，請分段再送。"
     try:
         translated, target = translator.translate(text, command.translate_target)
     except TranslateError as exc:
         logger.warning("translate failed: %s", exc.code)
         if exc.code == "no_key":
+            if indonesian:
+                return "Terjemahan belum disiapkan. Minta admin menambahkan XAI_API_KEY."
             return "翻譯還沒設定。請在環境變數加入 XAI_API_KEY 後重新部署。"
+        if indonesian:
+            return "Terjemahan gagal. Coba lagi nanti."
         return "翻譯失敗，請稍後再試。"
     if target == "id":
         label = "Bahasa Indonesia:"

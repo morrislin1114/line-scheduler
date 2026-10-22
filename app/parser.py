@@ -31,6 +31,19 @@ _TRANSLATE_DIR_RE = re.compile(
     r"(?:[ \t\u3000]*[:：][ \t\u3000]*|[ \t\u3000]+|\n+)"
     r"(?P<body>[\s\S]*)$"
 )
+# Whole word only, so "terjemahan ..." is not a command.
+_TRANSLATE_ID_RE = re.compile(
+    r"^(?P<head>terjemahkan|terjemahin|terjemah)(?![A-Za-z])"
+    r"(?P<rest>[\s\S]*)$",
+    re.IGNORECASE,
+)
+_ID_DIR_RE = re.compile(
+    r"^ke(?:[ \t\u3000]+bahasa)?[ \t\u3000]+"
+    r"(?P<word>indonesia|cina|mandarin|tionghoa)"
+    r"(?:[ \t\u3000]*[:：][ \t\u3000]*|[ \t\u3000]+|\n+|(?=$))"
+    r"(?P<body>[\s\S]*)$",
+    re.IGNORECASE,
+)
 
 # Safety cap for 查詢 N
 MAX_LIST_DAYS = 366
@@ -266,39 +279,64 @@ def _body_after_translate_head(rest: str) -> str:
     return body.strip()
 
 
+def _split_zh_direction(body: str) -> tuple[Optional[str], str]:
+    if body in {"印尼文", "印尼"}:
+        return "id", ""
+    if body == "中文":
+        return "zh", ""
+    direction = _TRANSLATE_DIR_RE.match(body)
+    if direction is None:
+        return None, body
+    word = direction.group("word")
+    target = "id" if word.startswith("印尼") else "zh"
+    return target, direction.group("body").strip()
+
+
+def _split_id_direction(body: str) -> tuple[Optional[str], str]:
+    direction = _ID_DIR_RE.match(body)
+    if direction is None:
+        return None, body
+    word = direction.group("word").lower()
+    target = "id" if word == "indonesia" else "zh"
+    return target, direction.group("body").strip()
+
+
 def parse_translate_message(text: str) -> Optional[Command]:
     """
     Parse a translate command. The whole message is one command, including
     following lines. Returns None when the text is not a translate command.
+
+    Chinese: 翻譯 / 翻印尼 / 翻中文
+    Indonesian: terjemahkan / terjemahkan ke Indonesia / terjemahkan ke bahasa Cina
     """
     raw = text.strip()
     if not raw:
         return None
+
     match = _TRANSLATE_RE.match(raw)
+    if match is not None:
+        head = match.group("head")
+        target = _translate_target_from_head(head)
+        body = _body_after_translate_head(match.group("rest"))
+        if target is None:
+            target, body = _split_zh_direction(body)
+        return Command(
+            type=CommandType.TRANSLATE,
+            source_text=body,
+            translate_target=target,
+            reply_lang="zh",
+        )
+
+    match = _TRANSLATE_ID_RE.match(raw)
     if match is None:
         return None
-
-    head = match.group("head")
-    target = _translate_target_from_head(head)
     body = _body_after_translate_head(match.group("rest"))
-    if target is None:
-        if body in {"印尼文", "印尼"}:
-            target = "id"
-            body = ""
-        elif body == "中文":
-            target = "zh"
-            body = ""
-        else:
-            direction = _TRANSLATE_DIR_RE.match(body)
-            if direction is not None:
-                word = direction.group("word")
-                target = "id" if word.startswith("印尼") else "zh"
-                body = direction.group("body").strip()
-
+    target, body = _split_id_direction(body)
     return Command(
         type=CommandType.TRANSLATE,
         source_text=body,
         translate_target=target,
+        reply_lang="id",
     )
 
 
@@ -446,7 +484,7 @@ def parse_message(text: str, today: Optional[date] = None) -> MessageParseResult
                 LineParseResult(
                     line_no=i,
                     raw=line,
-                    error="「查詢／說明／翻譯」請單獨送出，不可與多行排班混用",
+                    error="「查詢／說明／翻譯／terjemahkan」請單獨送出，不可與多行排班混用",
                 )
             )
             continue

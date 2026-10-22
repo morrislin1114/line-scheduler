@@ -218,6 +218,9 @@ HELP_TEXT = """📋 排班說明
 翻譯 Selamat pagi  印尼文 → 中文
 翻印尼 明天九點見   指定翻成印尼文
 翻中文 Besok jam 9 指定翻成中文
+印尼同事：terjemahkan 早安
+terjemahkan ke Indonesia …
+terjemahkan ke bahasa Cina …
 ・沒寫方向時，看原文以哪一種為主
 """
 
@@ -231,6 +234,18 @@ TRANSLATE_USAGE = """翻譯用法（中文↔印尼文）
 
 多行時第一行寫「翻譯」，下面貼原文。
 沒寫方向時：中文為主翻成印尼文，印尼文為主翻成繁體中文。
+"""
+
+
+TRANSLATE_USAGE_ID = """Cara terjemahan (Cina ↔ Indonesia)
+
+terjemahkan Selamat pagi
+terjemahkan 早安
+terjemahkan ke Indonesia 明天九點見
+terjemahkan ke bahasa Cina Besok masuk jam 9
+
+Beberapa baris: baris pertama tulis terjemahkan, lalu teksnya.
+Tanpa arah: teks Cina jadi bahasa Indonesia, teks Indonesia jadi bahasa Cina.
 """
 
 

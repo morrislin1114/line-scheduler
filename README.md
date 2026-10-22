@@ -25,6 +25,8 @@
 | 翻譯 | `翻譯 早安` | 中文 → 印尼文 |
 | 翻譯 | `翻譯 Selamat pagi` | 印尼文 → 繁體中文 |
 | 指定方向 | `翻印尼 …` / `翻中文 …` | 強制翻成印尼文或中文 |
+| 印尼文指令 | `terjemahkan Selamat pagi` | 跟「翻譯」一樣，自動判斷方向 |
+| 印尼文指定方向 | `terjemahkan ke Indonesia …` / `terjemahkan ke bahasa Cina …` | 強制翻成印尼文或中文 |
 
 ### 多行批次新增範例
 
@@ -64,6 +66,9 @@
 翻譯 明天早上九點見
 翻印尼 請帶證件
 翻中文 Besok masuk jam 9
+terjemahkan Selamat pagi
+terjemahkan ke Indonesia 明天九點見
+terjemahkan ke bahasa Cina Besok masuk jam 9
 ```
 
 多行時第一行寫 `翻譯`，下面貼原文。沒指定方向時：整段以中文為主就翻成印尼文，以印尼文為主就翻成繁體中文。

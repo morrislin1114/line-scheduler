@@ -87,3 +87,4 @@ def test_help_concise():
     assert "查詢 我" in HELP_TEXT
     assert "翻譯" in HELP_TEXT
     assert "翻印尼" in HELP_TEXT
+    assert "terjemahkan" in HELP_TEXT

@@ -32,6 +32,7 @@ class Command:
     # TRANSLATE
     source_text: Optional[str] = None
     translate_target: Optional[str] = None  # "id" | "zh" | None (auto)
+    reply_lang: Optional[str] = None  # "id" | "zh": language of the command itself
 
 
 @dataclass(frozen=True)
