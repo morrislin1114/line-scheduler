@@ -15,6 +15,13 @@ from app.models import Command, CommandType
 from app.parser import parse_message
 from app.service import ScheduleService
 from app.storage import ShiftStore
+from app.transcriber import (
+    MAX_AUDIO_MS,
+    TranscribeError,
+    Transcriber,
+    transcript_reply,
+    transcribe_failure_reply,
+)
 from app.translator import Translator, translation_reply
 
 logging.basicConfig(
@@ -29,7 +36,7 @@ if not settings.line_channel_secret:
 if not settings.line_channel_access_token:
     logger.error("LINE_CHANNEL_ACCESS_TOKEN is empty — replies will fail")
 if not settings.xai_api_key:
-    logger.warning("XAI_API_KEY is empty — 翻譯 command will be unavailable")
+    logger.warning("XAI_API_KEY is empty — 翻譯 and voice transcription will be unavailable")
 
 store = ShiftStore(
     settings.database_path,
@@ -44,6 +51,7 @@ translator = Translator(
     api_key=settings.xai_api_key,
     model=settings.xai_model,
 )
+transcriber = Transcriber(api_key=settings.xai_api_key)
 
 app = FastAPI(title="LINE Shift Scheduler", version="1.2.0")
 
@@ -109,6 +117,91 @@ def _start_translation(reply_token: str, command: Command) -> None:
     ).start()
 
 
+def _reply_audio(
+    reply_token: str,
+    message_id: str,
+    user_id: str,
+    group_id: str,
+    room_id: Optional[str],
+    source_type: str,
+) -> None:
+    try:
+        audio = line.get_message_content(message_id)
+        text, language = transcriber.transcribe(audio)
+        name = line.get_display_name(
+            user_id,
+            group_id=group_id if source_type == "group" else None,
+            room_id=room_id if source_type == "room" else None,
+        )
+        reply = transcript_reply(name, text, language)
+    except TranscribeError as exc:
+        logger.warning("transcribe failed: %s", exc.code)
+        reply = transcribe_failure_reply(exc.code)
+    except Exception:
+        logger.exception("Voice transcription failed")
+        reply = transcribe_failure_reply("download")
+    line.reply_text(reply_token, reply)
+
+
+def _start_audio(
+    reply_token: str,
+    message_id: str,
+    user_id: str,
+    group_id: str,
+    room_id: Optional[str],
+    source_type: str,
+) -> None:
+    threading.Thread(
+        target=_reply_audio,
+        args=(reply_token, message_id, user_id, group_id, room_id, source_type),
+        daemon=True,
+    ).start()
+
+
+def _handle_audio(event: Dict[str, Any]) -> None:
+    message = event.get("message") or {}
+    reply_token = event.get("replyToken") or ""
+    if not reply_token:
+        logger.error("Missing replyToken; cannot reply")
+        return
+
+    source = event.get("source") or {}
+    source_type = source.get("type")
+    user_id = source.get("userId") or ""
+    if source_type == "group":
+        group_id = source.get("groupId") or ""
+        room_id = None
+    elif source_type == "room":
+        group_id = source.get("roomId") or ""
+        room_id = source.get("roomId")
+    elif source_type == "user":
+        group_id = f"user:{user_id}"
+        room_id = None
+    else:
+        logger.warning("Unsupported source type: %s", source_type)
+        return
+    if not group_id:
+        return
+
+    provider = (message.get("contentProvider") or {}).get("type") or "line"
+    if provider != "line":
+        line.reply_text(reply_token, transcribe_failure_reply("external"))
+        return
+
+    duration = message.get("duration")
+    if isinstance(duration, int) and duration > MAX_AUDIO_MS:
+        line.reply_text(reply_token, transcribe_failure_reply("too_long"))
+        return
+
+    message_id = str(message.get("id") or "")
+    if not message_id:
+        line.reply_text(reply_token, transcribe_failure_reply("download"))
+        return
+
+    # Return 200 before download and transcription so LINE does not retry.
+    _start_audio(reply_token, message_id, user_id, group_id, room_id, source_type)
+
+
 def _handle_event(event: Dict[str, Any]) -> None:
     event_type = event.get("type")
     mode = event.get("mode")  # "active" can reply; "standby" has no usable reply
@@ -129,6 +222,9 @@ def _handle_event(event: Dict[str, Any]) -> None:
     if event_type != "message":
         return
     message = event.get("message") or {}
+    if message.get("type") == "audio":
+        _handle_audio(event)
+        return
     if message.get("type") != "text":
         return
 

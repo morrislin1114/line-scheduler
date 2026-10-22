@@ -222,6 +222,8 @@ HELP_TEXT = """📋 排班說明
 terjemahkan ke Indonesia …
 terjemahkan ke bahasa Cina …
 ・沒寫方向時，看原文以哪一種為主
+
+【語音】群組裡的語音訊息會自動轉成文字
 """
 
 

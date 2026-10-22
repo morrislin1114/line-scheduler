@@ -6,6 +6,7 @@ import base64
 import hashlib
 import hmac
 import logging
+import time
 from typing import Any, Dict, Optional
 
 import httpx
@@ -13,6 +14,7 @@ import httpx
 logger = logging.getLogger(__name__)
 
 LINE_API_BASE = "https://api.line.me/v2/bot"
+LINE_DATA_API_BASE = "https://api-data.line.me/v2/bot"
 
 
 class LineClient:
@@ -97,3 +99,29 @@ class LineClient:
 
         suffix = user_id[-4:] if user_id else "????"
         return f"User-{suffix}"
+
+    def get_message_content(self, message_id: str) -> bytes:
+        """Download a message file (voice notes are audio/mp4)."""
+        if not message_id:
+            raise ValueError("empty message id")
+        url = f"{LINE_DATA_API_BASE}/message/{message_id}/content"
+        headers = {"Authorization": f"Bearer {self.channel_access_token}"}
+        try:
+            with httpx.Client(timeout=20.0) as client:
+                resp = None
+                for attempt in range(3):
+                    resp = client.get(url, headers=headers)
+                    # 202 means LINE is still preparing the file.
+                    if resp.status_code != 202:
+                        break
+                    if attempt < 2:
+                        time.sleep(1)
+        except httpx.HTTPError as exc:
+            logger.exception("LINE content request error: %s", exc)
+            raise
+        if resp is None or resp.status_code != 200:
+            code = resp.status_code if resp is not None else 0
+            detail = "" if resp is None else resp.text[:200]
+            logger.error("LINE content failed: %s %s", code, detail)
+            raise RuntimeError(f"LINE content {code}")
+        return resp.content

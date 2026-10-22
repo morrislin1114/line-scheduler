@@ -115,6 +115,67 @@ def test_webhook_translate(client, monkeypatch):
     assert replies == ["Bahasa Indonesia:\nSelamat pagi"]
 
 
+def test_webhook_audio(client, monkeypatch):
+    c, main_mod = client
+    replies: list[str] = []
+    monkeypatch.setattr(main_mod.line, "reply_text", lambda token, text: replies.append(text))
+    monkeypatch.setattr(main_mod.line, "get_message_content", lambda message_id: b"audio-bytes")
+    monkeypatch.setattr(
+        main_mod.line,
+        "get_display_name",
+        lambda user_id, group_id=None, room_id=None: "Kelly",
+    )
+    monkeypatch.setattr(
+        main_mod,
+        "_start_audio",
+        lambda *args: main_mod._reply_audio(*args),
+    )
+
+    def fake_transcribe(audio, filename="voice.m4a"):
+        assert audio == b"audio-bytes"
+        return "明天早上九點見", "zh"
+
+    monkeypatch.setattr(main_mod.transcriber, "transcribe", fake_transcribe)
+    payload = {
+        "events": [
+            {
+                "type": "message",
+                "replyToken": "tok-audio",
+                "source": {"type": "group", "groupId": "G1", "userId": "U1"},
+                "message": {
+                    "type": "audio",
+                    "id": "m1",
+                    "duration": 3000,
+                    "contentProvider": {"type": "line"},
+                },
+            }
+        ]
+    }
+    r = c.post("/webhook", json=payload)
+    assert r.status_code == 200
+    assert replies == ["語音 Kelly\n明天早上九點見"]
+
+
+def test_webhook_audio_too_long(client, monkeypatch):
+    c, main_mod = client
+    replies: list[str] = []
+    monkeypatch.setattr(main_mod.line, "reply_text", lambda token, text: replies.append(text))
+    payload = {
+        "events": [
+            {
+                "type": "message",
+                "replyToken": "tok-long",
+                "source": {"type": "group", "groupId": "G1", "userId": "U1"},
+                "message": {"type": "audio", "id": "m2", "duration": 11 * 60 * 1000},
+            }
+        ]
+    }
+    r = c.post("/webhook", json=payload)
+    assert r.status_code == 200
+    assert len(replies) == 1
+    assert "10 分鐘" in replies[0]
+
+
 def test_webhook_ignores_chat(client, monkeypatch):
     c, main_mod = client
     called = []
