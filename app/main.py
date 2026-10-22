@@ -4,15 +4,18 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
 from typing import Any, Dict, Optional
 
 from fastapi import FastAPI, Header, HTTPException, Request, Response
 
 from app.config import get_settings
 from app.line_client import LineClient
+from app.models import Command, CommandType
 from app.parser import parse_message
 from app.service import ScheduleService
 from app.storage import ShiftStore
+from app.translator import Translator, translation_reply
 
 logging.basicConfig(
     level=logging.INFO,
@@ -25,6 +28,8 @@ if not settings.line_channel_secret:
     logger.error("LINE_CHANNEL_SECRET is empty — webhook signature will fail")
 if not settings.line_channel_access_token:
     logger.error("LINE_CHANNEL_ACCESS_TOKEN is empty — replies will fail")
+if not settings.xai_api_key:
+    logger.warning("XAI_API_KEY is empty — 翻譯 command will be unavailable")
 
 store = ShiftStore(
     settings.database_path,
@@ -35,8 +40,12 @@ line = LineClient(
     channel_access_token=settings.line_channel_access_token,
 )
 service = ScheduleService(store)
+translator = Translator(
+    api_key=settings.xai_api_key,
+    model=settings.xai_model,
+)
 
-app = FastAPI(title="LINE Shift Scheduler", version="1.1.0")
+app = FastAPI(title="LINE Shift Scheduler", version="1.2.0")
 
 
 @app.get("/health")
@@ -48,6 +57,7 @@ def health() -> Dict[str, str]:
         "db_ok": str(db_ok).lower(),
         "has_secret": str(bool(settings.line_channel_secret)).lower(),
         "has_token": str(bool(settings.line_channel_access_token)).lower(),
+        "has_xai_key": str(bool(settings.xai_api_key)).lower(),
     }
 
 
@@ -80,6 +90,23 @@ async def webhook(
             logger.exception("Failed to handle event: %s", event)
 
     return Response(content="OK", media_type="text/plain")
+
+
+def _reply_translation(reply_token: str, command: Command) -> None:
+    try:
+        reply = translation_reply(command, translator)
+        logger.info("Replying translation (%d chars)", len(reply))
+        line.reply_text(reply_token, reply)
+    except Exception:
+        logger.exception("Translation reply failed")
+
+
+def _start_translation(reply_token: str, command: Command) -> None:
+    threading.Thread(
+        target=_reply_translation,
+        args=(reply_token, command),
+        daemon=True,
+    ).start()
 
 
 def _handle_event(event: Dict[str, Any]) -> None:
@@ -134,6 +161,18 @@ def _handle_event(event: Dict[str, Any]) -> None:
     parsed = parse_message(text)
     if parsed.ignore:
         logger.info("Ignored non-command text")
+        return
+
+    if (
+        len(parsed.commands) == 1
+        and not parsed.line_errors
+        and parsed.commands[0].type == CommandType.TRANSLATE
+    ):
+        if not reply_token:
+            logger.error("Missing replyToken; cannot reply")
+            return
+        # Return 200 before the model responds so LINE does not retry the webhook.
+        _start_translation(reply_token, parsed.commands[0])
         return
 
     if not reply_token:

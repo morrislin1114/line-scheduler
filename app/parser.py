@@ -20,6 +20,18 @@ _CANCEL_RE = re.compile(
 )
 _DATE_TOKEN_RE = re.compile(r"^(\d{1,2})/(\d{1,2})$")
 
+# Longer heads first so 翻譯印尼 is not parsed as 翻譯 + 印尼…
+_TRANSLATE_RE = re.compile(
+    r"^(?P<head>翻譯成印尼文|翻譯成印尼|翻譯印尼文|翻譯印尼|翻印尼"
+    r"|翻譯成中文|翻譯中文|翻中文|翻譯)"
+    r"(?P<rest>[\s\S]*)$"
+)
+_TRANSLATE_DIR_RE = re.compile(
+    r"^(?P<word>印尼文|印尼|中文)"
+    r"(?:[ \t\u3000]*[:：][ \t\u3000]*|[ \t\u3000]+|\n+)"
+    r"(?P<body>[\s\S]*)$"
+)
+
 # Safety cap for 查詢 N
 MAX_LIST_DAYS = 366
 
@@ -239,6 +251,57 @@ def parse_list_command(
     return Command(type=CommandType.LIST, days=days, person_name=person)
 
 
+def _translate_target_from_head(head: str) -> Optional[str]:
+    if "印尼" in head:
+        return "id"
+    if "中文" in head:
+        return "zh"
+    return None
+
+
+def _body_after_translate_head(rest: str) -> str:
+    body = rest.lstrip(" \t\u3000")
+    if body[:1] in {":", "："}:
+        body = body[1:]
+    return body.strip()
+
+
+def parse_translate_message(text: str) -> Optional[Command]:
+    """
+    Parse a translate command. The whole message is one command, including
+    following lines. Returns None when the text is not a translate command.
+    """
+    raw = text.strip()
+    if not raw:
+        return None
+    match = _TRANSLATE_RE.match(raw)
+    if match is None:
+        return None
+
+    head = match.group("head")
+    target = _translate_target_from_head(head)
+    body = _body_after_translate_head(match.group("rest"))
+    if target is None:
+        if body in {"印尼文", "印尼"}:
+            target = "id"
+            body = ""
+        elif body == "中文":
+            target = "zh"
+            body = ""
+        else:
+            direction = _TRANSLATE_DIR_RE.match(body)
+            if direction is not None:
+                word = direction.group("word")
+                target = "id" if word.startswith("印尼") else "zh"
+                body = direction.group("body").strip()
+
+    return Command(
+        type=CommandType.TRANSLATE,
+        source_text=body,
+        translate_target=target,
+    )
+
+
 def parse_command(text: str, today: Optional[date] = None) -> Optional[Command]:
     """
     Parse a single-line user text into a Command.
@@ -249,6 +312,10 @@ def parse_command(text: str, today: Optional[date] = None) -> Optional[Command]:
     raw = text.strip()
     if not raw:
         return None
+
+    translated = parse_translate_message(raw)
+    if translated is not None:
+        return translated
 
     list_cmd = parse_list_command(raw, today=today)
     if list_cmd is not None:
@@ -322,9 +389,15 @@ def parse_message(text: str, today: Optional[date] = None) -> MessageParseResult
     """
     Parse a full chat message.
 
-    - Single line: same rules as before (查詢 / 說明 / 新增 / 取消)
-    - Multi-line: each non-empty line is add or cancel; 查詢/說明 only valid alone
+    - Translate (翻譯 / 翻印尼 / 翻中文): the whole message, including
+      following lines, is one translate command
+    - Single line: 查詢 / 說明 / 新增 / 取消
+    - Multi-line: each non-empty line is add or cancel; 查詢/說明/翻譯 only alone
     """
+    translated = parse_translate_message(text)
+    if translated is not None:
+        return MessageParseResult(commands=[translated], line_errors=[])
+
     lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
     if not lines:
         return MessageParseResult(commands=[], line_errors=[], ignore=True)
@@ -364,12 +437,16 @@ def parse_message(text: str, today: Optional[date] = None) -> MessageParseResult
             )
             continue
 
-        if cmd.type in {CommandType.LIST, CommandType.HELP}:
+        if cmd.type in {
+            CommandType.LIST,
+            CommandType.HELP,
+            CommandType.TRANSLATE,
+        }:
             errors.append(
                 LineParseResult(
                     line_no=i,
                     raw=line,
-                    error="「查詢／說明」請單獨一行送出，不可與多行混用",
+                    error="「查詢／說明／翻譯」請單獨送出，不可與多行排班混用",
                 )
             )
             continue

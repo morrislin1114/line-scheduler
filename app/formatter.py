@@ -212,6 +212,25 @@ HELP_TEXT = """📋 排班說明
 
 ・時間：24 小時制整點，顯示如 08–13
 ・可重複排班
+
+【翻譯】中文↔印尼文
+翻譯 早安           中文 → 印尼文
+翻譯 Selamat pagi  印尼文 → 中文
+翻印尼 明天九點見   指定翻成印尼文
+翻中文 Besok jam 9 指定翻成中文
+・沒寫方向時，看原文以哪一種為主
+"""
+
+
+TRANSLATE_USAGE = """翻譯用法（中文↔印尼文）
+
+翻譯 早安
+翻譯 Selamat pagi
+翻印尼 明天早上九點見
+翻中文 Besok masuk jam 9
+
+多行時第一行寫「翻譯」，下面貼原文。
+沒寫方向時：中文為主翻成印尼文，印尼文為主翻成繁體中文。
 """
 
 
@@ -219,8 +238,11 @@ HELP_TEXT = """📋 排班說明
 MAX_REPLY_CHARS = 4800
 
 
-def truncate_reply(text: str, limit: int = MAX_REPLY_CHARS) -> str:
+def truncate_reply(
+    text: str,
+    limit: int = MAX_REPLY_CHARS,
+    notice: str = "\n…（內容過長已截斷，請改查詢較近日期）",
+) -> str:
     if len(text) <= limit:
         return text
-    notice = "\n…（內容過長已截斷，請改查詢較近日期）"
     return text[: limit - len(notice)] + notice

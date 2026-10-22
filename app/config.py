@@ -21,6 +21,8 @@ class Settings:
     database_url: Optional[str]  # Postgres (Neon etc.); preferred when set
     database_path: Path  # SQLite fallback for local
     skip_signature_verify: bool = False
+    xai_api_key: str = ""
+    xai_model: str = "grok-4.7"
 
     @property
     def db_backend(self) -> str:
@@ -38,10 +40,14 @@ def get_settings() -> Settings:
     )
     db_path = os.getenv("DATABASE_PATH", "./data/shifts.db").strip()
     skip = os.getenv("SKIP_SIGNATURE_VERIFY", "").lower() in {"1", "true", "yes"}
+    xai_api_key = os.getenv("XAI_API_KEY", "").strip()
+    xai_model = os.getenv("XAI_MODEL", "grok-4.7").strip() or "grok-4.7"
     return Settings(
         line_channel_secret=secret,
         line_channel_access_token=token,
         database_url=database_url,
         database_path=Path(db_path),
         skip_signature_verify=skip,
+        xai_api_key=xai_api_key,
+        xai_model=xai_model,
     )

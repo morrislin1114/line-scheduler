@@ -84,6 +84,37 @@ def test_webhook_add_and_list(client, monkeypatch):
     assert any("Morris" in t for t in replies)
 
 
+def test_webhook_translate(client, monkeypatch):
+    c, main_mod = client
+    replies: list[str] = []
+    monkeypatch.setattr(main_mod.line, "reply_text", lambda token, text: replies.append(text))
+    monkeypatch.setattr(
+        main_mod,
+        "_start_translation",
+        lambda token, command: main_mod._reply_translation(token, command),
+    )
+
+    def fake_translate(text: str, target=None):
+        assert text == "早安"
+        assert target is None
+        return "Selamat pagi", "id"
+
+    monkeypatch.setattr(main_mod.translator, "translate", fake_translate)
+    payload = {
+        "events": [
+            {
+                "type": "message",
+                "replyToken": "tok-tr",
+                "source": {"type": "group", "groupId": "G1", "userId": "U1"},
+                "message": {"type": "text", "text": "翻譯 早安"},
+            }
+        ]
+    }
+    r = c.post("/webhook", json=payload)
+    assert r.status_code == 200
+    assert replies == ["印尼文：\nSelamat pagi"]
+
+
 def test_webhook_ignores_chat(client, monkeypatch):
     c, main_mod = client
     called = []

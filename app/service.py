@@ -133,6 +133,9 @@ class ScheduleService:
         if command.type == CommandType.HELP:
             return formatter.HELP_TEXT.strip()
 
+        if command.type == CommandType.TRANSLATE:
+            return "翻譯請單獨送出，例如：翻譯 早安"
+
         if command.type == CommandType.LIST:
             if command.list_from is not None:
                 from_date = command.list_from

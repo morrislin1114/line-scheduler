@@ -12,6 +12,8 @@ services:
         sync: false
       - key: DATABASE_URL
         sync: false
+      - key: XAI_API_KEY
+        sync: false
       # Fallback only if DATABASE_URL is unset (ephemeral on Free):
       - key: DATABASE_PATH
         value: /tmp/shifts.db

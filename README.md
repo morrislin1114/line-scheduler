@@ -22,6 +22,9 @@
 | 取消 | `取消 7/21 9-13` | 該時段**最新一筆**（**任何人**，可不寫名字） |
 | 取消 | `取消 7/22 13-19 John` | 只取消 John 該時段最新一筆 |
 | 說明 | `說明` | 指令說明 |
+| 翻譯 | `翻譯 早安` | 中文 → 印尼文 |
+| 翻譯 | `翻譯 Selamat pagi` | 印尼文 → 繁體中文 |
+| 指定方向 | `翻印尼 …` / `翻中文 …` | 強制翻成印尼文或中文 |
 
 ### 多行批次新增範例
 
@@ -52,8 +55,20 @@
 
 - 時間為 24 小時制整點，例如 `9-13`、`13-19`
 - **可重複排班**（同人同時段可多筆，不擋衝突）
-- 非指令訊息不會回覆，避免洗版
+- 非指令訊息不會回覆，避免洗版（印尼文聊天也不會自動翻）
 - 時區：`Asia/Taipei`
+
+### 中文／印尼文翻譯
+
+```
+翻譯 明天早上九點見
+翻印尼 請帶證件
+翻中文 Besok masuk jam 9
+```
+
+多行時第一行寫 `翻譯`，下面貼原文。沒指定方向時：整段以中文為主就翻成印尼文，以印尼文為主就翻成繁體中文。
+
+需要環境變數 `XAI_API_KEY`（到 [xAI Console](https://console.x.ai/) 建立 API key）。模型預設 `grok-4.7`，可用 `XAI_MODEL` 覆寫。沒設定金鑰時，排班仍可用，翻譯會回覆尚未設定。
 
 ### 查詢回覆範例
 
@@ -72,6 +87,7 @@
 - Python 3.11+ / FastAPI
 - **資料庫**：優先 `DATABASE_URL` → **PostgreSQL**（建議 Neon 免費）；未設定則 **SQLite**
 - LINE Messaging API（Webhook + Reply）
+- 翻譯：xAI Responses API（`XAI_API_KEY`，預設模型 `grok-4.7`）
 
 ## 快速開始（本機）
 
@@ -94,6 +110,8 @@ LINE_CHANNEL_ACCESS_TOKEN=你的_Channel_Access_Token
 DATABASE_PATH=./data/shifts.db
 # 或改用 Postgres（有設 DATABASE_URL 時會忽略 SQLite）：
 # DATABASE_URL=postgresql://user:pass@host/db?sslmode=require
+# 翻譯中文↔印尼文（沒設也能排班，只是翻譯會回覆尚未設定）：
+# XAI_API_KEY=your_xai_api_key
 ```
 
 ### 2. 建立 LINE Messaging API Channel
@@ -166,6 +184,7 @@ Repo 已在 GitHub：https://github.com/morrislin1114/line-scheduler
 | `LINE_CHANNEL_SECRET` | LINE Developers → Channel → Basic settings 的 **Channel secret** |
 | `LINE_CHANNEL_ACCESS_TOKEN` | Messaging API 分頁的 **Channel access token**（長字串） |
 | `DATABASE_URL` | **先做下方「使用 Neon 免費資料庫」**，再把連線字串貼這裡 |
+| `XAI_API_KEY` | 翻譯用。到 [xAI Console](https://console.x.ai/) 建立 API key。沒設則翻譯不可用，排班不受影響 |
 
 > 正式排班**強烈建議**設 `DATABASE_URL`（Neon）。  
 > 若暫時不加，可設 `DATABASE_PATH=/tmp/shifts.db`，但 Render 重啟／sleep **可能整包掉班表**。
@@ -365,6 +384,7 @@ app/
   storage.py       # Postgres / SQLite
   formatter.py     # 回覆格式
   line_client.py   # 簽章、reply、顯示名稱
+  translator.py    # 中文↔印尼文（xAI）
   models.py
 tests/
 ```

@@ -13,6 +13,7 @@ class CommandType(str, Enum):
     HELP = "help"
     ADD = "add"
     CANCEL = "cancel"
+    TRANSLATE = "translate"
 
 
 @dataclass(frozen=True)
@@ -28,6 +29,9 @@ class Command:
     list_from: Optional[date] = None
     list_to: Optional[date] = None
     list_label: Optional[str] = None  # display scope, e.g. 本週 / 7/21（二）
+    # TRANSLATE
+    source_text: Optional[str] = None
+    translate_target: Optional[str] = None  # "id" | "zh" | None (auto)
 
 
 @dataclass(frozen=True)
