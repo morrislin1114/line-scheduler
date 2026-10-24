@@ -223,6 +223,11 @@ terjemahkan ke Indonesia …
 terjemahkan ke bahasa Cina …
 ・沒寫方向時，看原文以哪一種為主
 
+【問答】
+機器人 台北現在幾點
+・後面整段都是問題，可多行
+・每次只看這一則，不會記得上一題
+
 【語音】群組裡的語音訊息會自動轉成文字
 """
 
@@ -248,6 +253,18 @@ terjemahkan ke bahasa Cina Besok masuk jam 9
 
 Beberapa baris: baris pertama tulis terjemahkan, lalu teksnya.
 Tanpa arah: teks Cina jadi bahasa Indonesia, teks Indonesia jadi bahasa Cina.
+"""
+
+
+ASK_USAGE = """問答用法
+
+機器人 台北現在幾點？
+機器人
+為什麼天空是藍色的？
+
+・後面整段都是問題，可多行
+・每次只看這一則，不會記得上一題
+・不會查班表；班表請用「查詢」
 """
 
 

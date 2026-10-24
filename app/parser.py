@@ -31,6 +31,11 @@ _TRANSLATE_DIR_RE = re.compile(
     r"(?:[ \t\u3000]*[:：][ \t\u3000]*|[ \t\u3000]+|\n+)"
     r"(?P<body>[\s\S]*)$"
 )
+# 「機器人」 must be its own command head, so 「機器人不回」 stays chat.
+_ASK_RE = re.compile(
+    r"^機器人(?:[ \t\u3000]*[:：][ \t\u3000]*|[ \t\u3000]+|\n+)(?P<body>[\s\S]*)$"
+)
+
 # Whole word only, so "terjemahan ..." is not a command.
 _TRANSLATE_ID_RE = re.compile(
     r"^(?P<head>terjemahkan|terjemahin|terjemah)(?![A-Za-z])"
@@ -301,6 +306,22 @@ def _split_id_direction(body: str) -> tuple[Optional[str], str]:
     return target, direction.group("body").strip()
 
 
+def parse_ask_message(text: str) -> Optional[Command]:
+    """
+    Parse a 機器人 question. The whole message is one prompt, including
+    following lines. Returns None when the text is not this command.
+    """
+    raw = text.strip()
+    if not raw:
+        return None
+    if raw == "機器人":
+        return Command(type=CommandType.ASK, source_text="")
+    match = _ASK_RE.match(raw)
+    if match is None:
+        return None
+    return Command(type=CommandType.ASK, source_text=match.group("body").strip())
+
+
 def parse_translate_message(text: str) -> Optional[Command]:
     """
     Parse a translate command. The whole message is one command, including
@@ -350,6 +371,10 @@ def parse_command(text: str, today: Optional[date] = None) -> Optional[Command]:
     raw = text.strip()
     if not raw:
         return None
+
+    asked = parse_ask_message(raw)
+    if asked is not None:
+        return asked
 
     translated = parse_translate_message(raw)
     if translated is not None:
@@ -427,11 +452,16 @@ def parse_message(text: str, today: Optional[date] = None) -> MessageParseResult
     """
     Parse a full chat message.
 
+    - 機器人: the whole message, including following lines, is one question
     - Translate (翻譯 / 翻印尼 / 翻中文): the whole message, including
       following lines, is one translate command
     - Single line: 查詢 / 說明 / 新增 / 取消
-    - Multi-line: each non-empty line is add or cancel; 查詢/說明/翻譯 only alone
+    - Multi-line: each non-empty line is add or cancel; 查詢/說明/翻譯/機器人 only alone
     """
+    asked = parse_ask_message(text)
+    if asked is not None:
+        return MessageParseResult(commands=[asked], line_errors=[])
+
     translated = parse_translate_message(text)
     if translated is not None:
         return MessageParseResult(commands=[translated], line_errors=[])
@@ -479,12 +509,13 @@ def parse_message(text: str, today: Optional[date] = None) -> MessageParseResult
             CommandType.LIST,
             CommandType.HELP,
             CommandType.TRANSLATE,
+            CommandType.ASK,
         }:
             errors.append(
                 LineParseResult(
                     line_no=i,
                     raw=line,
-                    error="「查詢／說明／翻譯／terjemahkan」請單獨送出，不可與多行排班混用",
+                    error="「查詢／說明／翻譯／terjemahkan／機器人」請單獨送出，不可與多行排班混用",
                 )
             )
             continue

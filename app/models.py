@@ -14,6 +14,7 @@ class CommandType(str, Enum):
     ADD = "add"
     CANCEL = "cancel"
     TRANSLATE = "translate"
+    ASK = "ask"
 
 
 @dataclass(frozen=True)
@@ -29,7 +30,7 @@ class Command:
     list_from: Optional[date] = None
     list_to: Optional[date] = None
     list_label: Optional[str] = None  # display scope, e.g. 本週 / 7/21（二）
-    # TRANSLATE
+    # TRANSLATE or ASK (the prompt after 機器人)
     source_text: Optional[str] = None
     translate_target: Optional[str] = None  # "id" | "zh" | None (auto)
     reply_lang: Optional[str] = None  # "id" | "zh": language of the command itself

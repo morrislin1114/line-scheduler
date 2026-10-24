@@ -115,6 +115,36 @@ def test_webhook_translate(client, monkeypatch):
     assert replies == ["Bahasa Indonesia:\nSelamat pagi"]
 
 
+def test_webhook_ask(client, monkeypatch):
+    c, main_mod = client
+    replies: list[str] = []
+    monkeypatch.setattr(main_mod.line, "reply_text", lambda token, text: replies.append(text))
+    monkeypatch.setattr(
+        main_mod,
+        "_start_ask",
+        lambda token, command: main_mod._reply_ask(token, command),
+    )
+
+    def fake_ask(text: str) -> str:
+        assert text == "台北現在幾點"
+        return "下午三點。"
+
+    monkeypatch.setattr(main_mod.assistant, "ask", fake_ask)
+    payload = {
+        "events": [
+            {
+                "type": "message",
+                "replyToken": "tok-ask",
+                "source": {"type": "group", "groupId": "G1", "userId": "U1"},
+                "message": {"type": "text", "text": "機器人 台北現在幾點"},
+            }
+        ]
+    }
+    r = c.post("/webhook", json=payload)
+    assert r.status_code == 200
+    assert replies == ["下午三點。"]
+
+
 def test_webhook_audio(client, monkeypatch):
     c, main_mod = client
     replies: list[str] = []

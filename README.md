@@ -27,6 +27,7 @@
 | 指定方向 | `翻印尼 …` / `翻中文 …` | 強制翻成印尼文或中文 |
 | 印尼文指令 | `terjemahkan Selamat pagi` | 跟「翻譯」一樣，自動判斷方向 |
 | 印尼文指定方向 | `terjemahkan ke Indonesia …` / `terjemahkan ke bahasa Cina …` | 強制翻成印尼文或中文 |
+| 問答 | `機器人 台北現在幾點` | 把後面的問題交給 Grok 回答 |
 
 ### 多行批次新增範例
 
@@ -74,7 +75,17 @@ terjemahkan ke bahasa Cina Besok masuk jam 9
 
 多行時第一行寫 `翻譯`，下面貼原文。沒指定方向時：整段以中文為主就翻成印尼文，以印尼文為主就翻成繁體中文。
 
-需要環境變數 `XAI_API_KEY`（到 [xAI Console](https://console.x.ai/) 建立 API key）。模型預設 `grok-4.7`，可用 `XAI_MODEL` 覆寫。沒設定金鑰時，排班仍可用，翻譯會回覆尚未設定。
+需要環境變數 `XAI_API_KEY`（到 [xAI Console](https://console.x.ai/) 建立 API key）。模型預設 `grok-4.7`，可用 `XAI_MODEL` 覆寫。沒設定金鑰時，排班仍可用，翻譯和問答會回覆尚未設定。
+
+### 問答
+
+```
+機器人 台北現在幾點？
+機器人
+為什麼天空是藍色的？
+```
+
+`機器人` 後面整段都是問題，可以多行。每次只看這一則，不會記得上一題，也不會查班表。一般聊天（沒有「機器人」）仍然不回覆。跟翻譯共用 `XAI_API_KEY`。回答超過 LINE 單則上限時會截斷。
 
 ### 語音轉文字
 
@@ -104,7 +115,7 @@ terjemahkan ke bahasa Cina Besok masuk jam 9
 - Python 3.11+ / FastAPI
 - **資料庫**：優先 `DATABASE_URL` → **PostgreSQL**（建議 Neon 免費）；未設定則 **SQLite**
 - LINE Messaging API（Webhook + Reply）
-- 翻譯：xAI Responses API（`XAI_API_KEY`，預設模型 `grok-4.7`）
+- 翻譯與問答：xAI Responses API（`XAI_API_KEY`，預設模型 `grok-4.7`）
 
 ## 快速開始（本機）
 
@@ -127,7 +138,7 @@ LINE_CHANNEL_ACCESS_TOKEN=你的_Channel_Access_Token
 DATABASE_PATH=./data/shifts.db
 # 或改用 Postgres（有設 DATABASE_URL 時會忽略 SQLite）：
 # DATABASE_URL=postgresql://user:pass@host/db?sslmode=require
-# 翻譯中文↔印尼文（沒設也能排班，只是翻譯會回覆尚未設定）：
+# 翻譯與「機器人」問答（沒設也能排班，只是這兩項會回覆尚未設定）：
 # XAI_API_KEY=your_xai_api_key
 ```
 

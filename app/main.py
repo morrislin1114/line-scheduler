@@ -9,6 +9,7 @@ from typing import Any, Dict, Optional
 
 from fastapi import FastAPI, Header, HTTPException, Request, Response
 
+from app.assistant import Assistant, ask_reply
 from app.config import get_settings
 from app.line_client import LineClient
 from app.models import Command, CommandType
@@ -36,7 +37,9 @@ if not settings.line_channel_secret:
 if not settings.line_channel_access_token:
     logger.error("LINE_CHANNEL_ACCESS_TOKEN is empty — replies will fail")
 if not settings.xai_api_key:
-    logger.warning("XAI_API_KEY is empty — 翻譯 and voice transcription will be unavailable")
+    logger.warning(
+        "XAI_API_KEY is empty — 翻譯, 機器人, and voice transcription will be unavailable"
+    )
 
 store = ShiftStore(
     settings.database_path,
@@ -48,6 +51,10 @@ line = LineClient(
 )
 service = ScheduleService(store)
 translator = Translator(
+    api_key=settings.xai_api_key,
+    model=settings.xai_model,
+)
+assistant = Assistant(
     api_key=settings.xai_api_key,
     model=settings.xai_model,
 )
@@ -112,6 +119,23 @@ def _reply_translation(reply_token: str, command: Command) -> None:
 def _start_translation(reply_token: str, command: Command) -> None:
     threading.Thread(
         target=_reply_translation,
+        args=(reply_token, command),
+        daemon=True,
+    ).start()
+
+
+def _reply_ask(reply_token: str, command: Command) -> None:
+    try:
+        reply = ask_reply(command, assistant)
+        logger.info("Replying ask (%d chars)", len(reply))
+        line.reply_text(reply_token, reply)
+    except Exception:
+        logger.exception("Ask reply failed")
+
+
+def _start_ask(reply_token: str, command: Command) -> None:
+    threading.Thread(
+        target=_reply_ask,
         args=(reply_token, command),
         daemon=True,
     ).start()
@@ -262,13 +286,17 @@ def _handle_event(event: Dict[str, Any]) -> None:
     if (
         len(parsed.commands) == 1
         and not parsed.line_errors
-        and parsed.commands[0].type == CommandType.TRANSLATE
+        and parsed.commands[0].type in {CommandType.TRANSLATE, CommandType.ASK}
     ):
         if not reply_token:
             logger.error("Missing replyToken; cannot reply")
             return
         # Return 200 before the model responds so LINE does not retry the webhook.
-        _start_translation(reply_token, parsed.commands[0])
+        command = parsed.commands[0]
+        if command.type == CommandType.TRANSLATE:
+            _start_translation(reply_token, command)
+        else:
+            _start_ask(reply_token, command)
         return
 
     if not reply_token:

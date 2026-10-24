@@ -136,6 +136,9 @@ class ScheduleService:
         if command.type == CommandType.TRANSLATE:
             return "翻譯請單獨送出，例如：翻譯 早安"
 
+        if command.type == CommandType.ASK:
+            return "問答請單獨送出，例如：機器人 台北現在幾點"
+
         if command.type == CommandType.LIST:
             if command.list_from is not None:
                 from_date = command.list_from
