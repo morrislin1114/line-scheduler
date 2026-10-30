@@ -1,0 +1,18 @@
+name: Keep Render awake
+
+on:
+  schedule:
+    # Render free sleeps after 15 minutes. Every 10 minutes resets that timer.
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Ping health
+        run: |
+          curl -fsS -m 90 \
+            -w "\ncode:%{http_code} time:%{time_total}s\n" \
+            https://line-scheduler-ybzo.onrender.com/health
