@@ -2,9 +2,9 @@ name: Keep Render awake
 
 on:
   schedule:
-    # Render free sleeps after 15 minutes. GitHub often starts cron late,
-    # so 5 minutes leaves room for that delay.
-    - cron: "*/5 * * * *"
+    # Asked interval is 12 minutes. GitHub often delays or drops schedule
+    # runs, so this will not actually fire every 12 minutes.
+    - cron: "*/12 * * * *"
   workflow_dispatch:
 
 jobs:
